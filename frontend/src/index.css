@@ -1,0 +1,269 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+html {
+  scroll-behavior: smooth;
+}
+
+/* underline animation */
+.nav-link {
+  position: relative;
+}
+.nav-link::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: white;
+  transition: width 0.2s ease;
+}
+.nav-link:hover::after {
+  width: 100%;
+}
+
+/* fade in */
+.fade-in {
+  animation: fadeIn 0.8s ease-out both;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* floating mock */
+.float {
+  animation: floatAnim 6s ease-in-out infinite;
+}
+@keyframes floatAnim {
+  50% { transform: translateY(-6px); }
+}
+
+/* accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .fade-in,
+  .float {
+    animation: none;
+  }
+}
+
+
+
+.chitchat-bg {
+  @apply bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500;
+}
+.animate-msg {
+  animation: fadeIn 0.15s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.typing-dots span {
+  animation: blink 1.4s infinite both;
+  font-weight: bold;
+}
+
+.typing-dots span:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.typing-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes blink {
+  0% {
+    opacity: 0.2;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.2;
+  }
+}
+.reply-highlight {
+  animation: replyFlash 1.2s ease-out;
+}
+
+@keyframes replyFlash {
+  0% {
+    background-color: rgba(99, 102, 241, 0.35);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes loading-bar {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(-30%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+@keyframes navIn {
+  from {
+    transform: translate(-50%, 20px);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}
+
+.animate-loading-bar {
+  animation: loading-bar 1.2s ease-in-out infinite;
+}
+
+/* Mobile gradient softening fix */
+@media (max-width: 640px) {
+  .chitchat-bg {
+    background: linear-gradient(
+      to bottom right,
+      rgba(129, 140, 248, 0.75),   /* lighter indigo-400 */
+      rgba(168, 85, 247, 0.75),    /* lighter purple-400 */
+      rgba(236, 72, 153, 0.75)     /* lighter pink-400 */
+    ) !important;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.15s ease-out;
+}
+
+* {
+  pointer-events: auto;
+}
+
+body::before,
+body::after {
+  pointer-events: none;
+}
+
+.chitchat-title-glow {
+  animation: chitchatGlow 3s ease-in-out infinite alternate;
+}
+
+@keyframes chitchatGlow {
+  from {
+    text-shadow: 0 0 6px rgba(255, 255, 255, 0.4);
+  }
+  to {
+    text-shadow: 0 0 12px rgba(255, 255, 255, 0.7);
+  }
+}
+
+.input-valid {
+  border-color: #22c55e !important;          /* Tailwind green-500 */ 
+  transition: all 0.25s ease;
+}
+
+.input-error {
+  border-color: #dc2626 !important;           /* red-600 */
+  transition: all 0.25s ease;
+}
+
+
+@keyframes gridMove {
+  from { background-position: 0 0; }
+  to { background-position: 40px 40px; }
+}
+/* Fade-in animation */
+@keyframes fadeInSmooth {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes errorFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,0.25) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.25) 1px, transparent 1px);
+  background-size: 40px 40px;
+  animation: gridMove 18s linear infinite;
+}
+.fade-in {
+  animation: fadeInSmooth 0.8s ease-out forwards;
+}
+
+/* Soft glow on hover */
+.glow-hover:hover {
+  box-shadow: 0 0 25px rgba(255, 255, 255, 0.65);
+  transition: box-shadow 0.3s ease;
+}
+
+/* Subtle tilt effect */
+.tilt-hover {
+  transition: transform 0.3s ease;
+}
+
+.tilt-hover:hover {
+  transform: perspective(600px) rotateX(3deg) rotateY(-3deg);
+}
+
+.error-fade {
+  animation: errorFadeIn 0.25s ease-out forwards;
+}
+
+@keyframes errorFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes typingTextIn {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-typing-text {
+  animation: typingTextIn 0.2s ease-out;
+}
+
+

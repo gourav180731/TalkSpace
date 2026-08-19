@@ -1,0 +1,123 @@
+name: CI/CD - Build & Deploy to EC2 (Docker Hub + Rollback)
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  DOCKERHUB_REPO_BACKEND: rajkrr/chat_app_backend
+  DOCKERHUB_REPO_FRONTEND: rajkrr/chat_app_frontend
+
+jobs:
+  build_and_push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "rajkrr" --password-stdin
+
+      # -------------------------------
+      # BUILD BACKEND
+      # -------------------------------
+      - name: Build & push backend image (latest + SHA tag)
+        run: |
+          SHA=$(echo $GITHUB_SHA | cut -c1-8)
+
+          docker build -t $DOCKERHUB_REPO_BACKEND:latest ./backend
+          docker tag $DOCKERHUB_REPO_BACKEND:latest $DOCKERHUB_REPO_BACKEND:sha-$SHA
+
+          docker push $DOCKERHUB_REPO_BACKEND:latest
+          docker push $DOCKERHUB_REPO_BACKEND:sha-$SHA
+
+      # -------------------------------
+      # BUILD FRONTEND
+      # -------------------------------
+      - name: Build & push frontend image (latest + SHA tag)
+        env:
+          VITE_API_URL: ${{ secrets.PROD_VITE_API_URL }}
+        run: |
+          SHA=$(echo $GITHUB_SHA | cut -c1-8)
+
+          docker build \
+            --build-arg VITE_API_URL=$VITE_API_URL \
+            -t $DOCKERHUB_REPO_FRONTEND:latest \
+            ./frontend
+
+          docker tag $DOCKERHUB_REPO_FRONTEND:latest $DOCKERHUB_REPO_FRONTEND:sha-$SHA
+
+          docker push $DOCKERHUB_REPO_FRONTEND:latest
+          docker push $DOCKERHUB_REPO_FRONTEND:sha-$SHA
+
+  deploy_to_ec2:
+    needs: build_and_push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key
+          chmod 600 ~/.ssh/ec2_key
+
+      - name: Deploy to EC2 using SHA tag
+        env:
+          SHA: ${{ github.sha }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          SHA_SHORT=$(echo $SHA | cut -c1-8)
+
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/ec2_key $EC2_USER@$EC2_HOST << EOF
+            set -e
+            cd ~/chat_app/chat_app
+
+            echo $DOCKER_PASSWORD | sudo docker login -u $DOCKER_USERNAME --password-stdin
+            echo '--- Syncing latest code from GitHub (force sync) ---'
+            git fetch origin
+            git checkout main
+            git reset --hard origin/main
+
+
+            echo '--- Copying env files ---'
+            cp -f ../env/backend.env ./backend/.env
+            cp -f ../env/frontend.env ./frontend/.env || true
+
+            echo '--- Pulling new Docker images ---'
+            sudo docker pull $DOCKERHUB_REPO_BACKEND:sha-$SHA_SHORT
+            sudo docker pull $DOCKERHUB_REPO_FRONTEND:sha-$SHA_SHORT
+
+            echo '--- Updating docker-compose to use new SHA tags ---'
+            sudo sed -i "s|rajkrr/chat_app_backend:.*|rajkrr/chat_app_backend:sha-$SHA_SHORT|g" docker-compose.yml
+            sudo sed -i "s|rajkrr/chat_app_frontend:.*|rajkrr/chat_app_frontend:sha-$SHA_SHORT|g" docker-compose.yml
+
+            echo '--- Restarting application (docker-compose) ---'
+            sudo docker-compose down || true
+
+            if ! sudo docker-compose up -d; then
+              echo 'Deploy FAILED. Rolling back...'
+
+              sudo sed -i "s|rajkrr/chat_app_backend:sha-$SHA_SHORT|rajkrr/chat_app_backend:previous|g" docker-compose.yml
+              sudo sed -i "s|rajkrr/chat_app_frontend:sha-$SHA_SHORT|rajkrr/chat_app_frontend:previous|g" docker-compose.yml
+
+              sudo docker-compose up -d
+              exit 1
+            fi
+
+            echo '--- Marking current build as previous stable ---'
+            sudo docker tag $DOCKERHUB_REPO_BACKEND:sha-$SHA_SHORT $DOCKERHUB_REPO_BACKEND:previous
+            sudo docker tag $DOCKERHUB_REPO_FRONTEND:sha-$SHA_SHORT $DOCKERHUB_REPO_FRONTEND:previous
+
+            sudo docker push $DOCKERHUB_REPO_BACKEND:previous
+            sudo docker push $DOCKERHUB_REPO_FRONTEND:previous
+
+            echo '--- Cleaning unused images ---'
+            sudo docker image prune -af || true
+
+            echo '--- Deployment COMPLETE 🎉 ---'
+          EOF
