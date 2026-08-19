@@ -39,7 +39,7 @@ export default function ChatListItem({
           className="
             relative shrink-0
             cursor-pointer
-            hover:ring-2 hover:ring-indigo-400/60
+            hover:ring-2 hover:ring-orange-400/60
             rounded-full transition
             hover:scale-105 active:scale-95
 
@@ -100,8 +100,8 @@ export default function ChatListItem({
               px-2 text-xs font-semibold
               flex items-center justify-center
               rounded-full
-              bg-indigo-500 text-white
-              shadow-[0_0_10px_rgba(99,102,241,0.9)]
+              bg-gradient-to-r from-orange-500 to-amber-500 text-white
+              shadow-[0_0_10px_rgba(249,115,22,0.9)]
             "
           >
             {unreadCount}

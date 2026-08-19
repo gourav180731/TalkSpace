@@ -8,18 +8,27 @@ export default function ChatHeader({ user, onBack }: any) {
   const isOnline = onlineUsers.has(user._id);
 
   return (
-    <div className="z-20 flex items-center gap-3 px-4 py-3 bg-white/10 backdrop-blur-xl border-b border-white/20">
+    <div className="z-20 flex items-center gap-3 px-4 py-3 bg-orange-100/60 backdrop-blur-xl border-b border-orange-200/60 dark:bg-white/10 dark:border-white/20">
       {/* BACK (mobile only) */}
-      <button onClick={onBack} className="md:hidden text-white">
+      <button onClick={onBack} className="md:hidden text-[#2b1f16] dark:text-white">
         <ArrowLeft size={24} />
       </button>
 
       {/* AVATAR */}
       <div className="relative">
-        <img
-          src={user.avatar || "/avatar-placeholder.png"}
-          className="w-10 h-10 rounded-full object-cover"
-        />
+        {user.isBot ? (
+          <div
+            className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-white font-bold text-lg"
+            style={{ fontFamily: "'Fraunces', Georgia, serif" }}
+          >
+            E
+          </div>
+        ) : (
+          <img
+            src={user.avatar || "/avatar-placeholder.png"}
+            className="w-10 h-10 rounded-full object-cover"
+          />
+        )}
         {!user.isBot && isOnline && (
           <span className="absolute bottom-0 right-0 w-2 h-2 bg-green-400 animate-pulse rounded-full" />
         )}
@@ -27,14 +36,14 @@ export default function ChatHeader({ user, onBack }: any) {
 
       {/* NAME + STATUS */}
       <div className="flex flex-col">
-        <span className="text-white font-semibold">{user.username}</span>
-        <span className="text-xs text-white/70">
+        <span className="text-[#2b1f16] font-semibold dark:text-white">{user.username}</span>
+        <span className="text-xs text-[#2b1f16]/60 dark:text-white/70">
           {callSocket.callStatus === "calling"
             ? "📡 Calling..."
             : callSocket.callStatus === "connected"
             ? "🎤 In call"
             : user.isBot
-            ? "🤖 AI Assistant"
+            ? "Echo · always here"
             : isOnline
             ? "online"
             : lastSeen[user._id]
@@ -50,7 +59,7 @@ export default function ChatHeader({ user, onBack }: any) {
             <button
               onClick={() => { if (callSocket.callStatus === "idle") user.onCall?.("audio"); }}
               disabled={callSocket.callStatus !== "idle"}
-              className={`text-white transition ${
+              className={`text-[#2b1f16] dark:text-white transition ${
                 callSocket.callStatus !== "idle"
                   ? "opacity-50 cursor-not-allowed"
                   : "hover:scale-110"
@@ -62,7 +71,7 @@ export default function ChatHeader({ user, onBack }: any) {
             <button
               onClick={() => { if (callSocket.callStatus === "idle") user.onCall?.("video"); }}
               disabled={callSocket.callStatus !== "idle"}
-              className={`text-white transition ${
+              className={`text-[#2b1f16] dark:text-white transition ${
                 callSocket.callStatus !== "idle"
                   ? "opacity-50 cursor-not-allowed"
                   : "hover:scale-110"

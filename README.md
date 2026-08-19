@@ -1,6 +1,6 @@
-# ChitChat 💬
+# TalkSpace 💬
 
-ChitChat is a real-time communication platform built with a modern full-stack architecture,
+TalkSpace is a real-time communication platform built with a modern full-stack architecture,
 focused on performance, scalability, and clean separation of concerns.
 
 It goes beyond basic messaging by integrating **real-time chat, media sharing, and peer-to-peer audio/video calling**,
@@ -8,10 +8,10 @@ simulating a production-grade communication system.
 
 ---
 
-## ✨ Why ChitChat?
+## ✨ Why TalkSpace?
 
 Most chat applications hide complexity behind simple UI.
-ChitChat is built to **embrace that complexity**—handling real-time messaging,
+TalkSpace is built to **embrace that complexity**—handling real-time messaging,
 state synchronization, pagination, socket-driven updates, and peer-to-peer communication
 in a clean and maintainable way.
 
@@ -57,7 +57,7 @@ This project prioritizes:
 
 ## 🏗️ Architecture Overview
 
-ChitChat follows a client-server architecture with a dedicated real-time and peer communication layer:
+TalkSpace follows a client-server architecture with a dedicated real-time and peer communication layer:
 
 * **Frontend**: Manages UI, state, socket listeners, and WebRTC connections
 * **Backend**: Handles authentication, APIs, message persistence, and socket signaling
@@ -70,7 +70,7 @@ ChitChat follows a client-server architecture with a dedicated real-time and pee
 ## 📁 Project Structure
 
 ```txt
-chitchat/
+talkspace/
 ├── .github/              # GitHub workflows
 ├── frontend/             # Client-side application (React + Vite)
 ├── backend/              # Server-side APIs & socket server
@@ -104,7 +104,7 @@ chitchat/
 
 ```bash
 # Clone the repository
-git clone https://github.com/raj-krr/chitchat.git
+git clone https://github.com/gourav180731/TalkSpace.git
 
 # Start backend
 cd backend
@@ -173,25 +173,15 @@ npm run dev
 
 ---
 
-## 🌐 Live Demo
-
-
-🚀 Try it here: https://chitchatt.tech
-
-- 🔐 Create an account or log in
-- 💬 Start real-time chatting instantly
-- 📞 Try audio/video calling in action
-
----
-
 ## 🤝 Contributing
 
 Contributions are welcome.
-Please follow the existing project structure and coding conventions.
+Please open an issue or pull request at https://github.com/gourav180731/TalkSpace/issues,
+and follow the existing project structure and coding conventions.
 Refer to the frontend and backend READMEs for implementation details.
 
 ---
 
 ## 📄 License
 
-This project is intended for learning, portfolio, and development use.
+This project is intended for learning, portfolio, and development use. See [LICENSE](./LICENSE).

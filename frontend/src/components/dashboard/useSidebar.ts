@@ -11,7 +11,7 @@ export function useSidebar() {
   const [mode, setMode] = useState<"chats" | "requests">("chats");
   const [friends, setFriends] = useState<any[]>([]);
 
-  const abortRef = useRef<AbortController>();
+  const abortRef = useRef<AbortController | null>(null);
 
   const loadAllUsers = async (search: string) => {
     abortRef.current?.abort();
@@ -48,7 +48,7 @@ export function useSidebar() {
   };
 
   /* -------- INITIAL LOAD + SEARCH (debounced) -------- */
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {

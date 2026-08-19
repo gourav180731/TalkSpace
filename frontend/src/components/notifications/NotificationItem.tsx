@@ -55,8 +55,8 @@ export default function NotificationItem({
           className="
             absolute top-3 right-3
             w-2.5 h-2.5 rounded-full
-            bg-indigo-400
-            shadow-[0_0_10px_rgba(99,102,241,0.9)]
+            bg-orange-400
+            shadow-[0_0_10px_rgba(249,115,22,0.9)]
           "
         />
       )}

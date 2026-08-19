@@ -164,7 +164,8 @@ const scrollToMessage = async (messageId: string) => {
         onScroll={handleScroll}
         className="
   flex-1 overflow-y-auto px-2 pt-3
-  bg-white/10 backdrop-blur-xl
+  bg-orange-50/50 backdrop-blur-xl
+  dark:bg-white/10
 "
       >
         {visibleMessages.map((m, i) => {
@@ -181,7 +182,7 @@ const scrollToMessage = async (messageId: string) => {
           return (
             <div key={m.__key} className="w-full">
               {showDate && currDate && (
-                <div className="text-center my-3 text-xs text-white/60">
+                <div className="text-center my-3 text-xs text-[#2b1f16]/50 dark:text-white/60">
                   {formatDateLabel(currDate.toISOString())}
                 </div>
               )}
@@ -222,7 +223,7 @@ const scrollToMessage = async (messageId: string) => {
            absolute bottom-[96px] md:bottom-[88px]
             left-1/2 -translate-x-1/2
             px-4 py-2 rounded-full
-            bg-indigo-600 text-white shadow-lg
+            bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg
           "
         >
           New messages ↓
@@ -238,7 +239,7 @@ const scrollToMessage = async (messageId: string) => {
     className="
       absolute -top-4 left-3
       text-[11px] md:text-xs
-      text-white
+      text-[#2b1f16] dark:text-white
       select-none
       animate-typing-text
     "

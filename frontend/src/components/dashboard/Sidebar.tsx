@@ -33,13 +33,14 @@ export default function Sidebar({
   return (
     <div
       className="
-    relative h-full flex flex-col text-white
+    relative h-full flex flex-col text-[#2b1f16] dark:text-white
 
-    md:bg-white/5
-    md:border-r md:border-white/10
+    md:bg-orange-100/40
+    md:border-r md:border-orange-200/60
     md:shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)]
 
-    
+    dark:md:bg-white/5
+    dark:md:border-white/10
   "
     >
       {/*  SEARCH */}
@@ -47,15 +48,18 @@ export default function Sidebar({
         className="
     sticky top-0 z-20 p-3 space-y-2
 
-    bg-white/20 backdrop-blur-xl
-    border-b border-white/20
+    bg-orange-100/70 backdrop-blur-xl
+    border-b border-orange-200/60
 
     md:bg-transparent md:backdrop-blur-0 md:border-0
+
+    dark:bg-white/20 dark:border-white/20
   "
       >
         {/* BRANDING (MOBILE ONLY) */}
-        <h1 className="md:hidden text-2xl font-bold text-white tracking-wide">
-          ChitChat
+        <h1 className="md:hidden flex items-center gap-2 text-2xl font-bold text-[#2b1f16] tracking-wide dark:text-white">
+          <img src="/talkspace-icon.svg" alt="" className="w-7 h-7 rounded-lg" />
+          <span style={{ fontFamily: "'Fraunces', Georgia, serif" }}>TalkSpace</span>
         </h1>
         <TextInput
           placeholder="Search users"
@@ -64,7 +68,7 @@ export default function Sidebar({
           radius="xl"
           classNames={{
             input:
-              "bg-white/90 text-black rounded-full px-4 py-3 focus:ring-2 focus:ring-indigo-400",
+              "bg-white/90 text-black rounded-full px-4 py-3 focus:ring-2 focus:ring-orange-400",
           }}
         />
 
@@ -74,10 +78,10 @@ export default function Sidebar({
               setMode("chats");
               setQuery("");
             }}
-            className={`text-xs px-3 py-1 rounded-lg ${
+className={`text-xs px-3 py-1 rounded-lg ${
               mode === "chats"
-                ? "bg-indigo-500"
-                : "bg-white/10 hover:bg-white/20"
+                ? "bg-orange-500 text-white"
+                : "bg-[#2b1f16]/10 hover:bg-[#2b1f16]/15 text-[#2b1f16] dark:bg-white/10 dark:hover:bg-white/20 dark:text-white"
             }`}
           >
             Chats
@@ -88,10 +92,10 @@ export default function Sidebar({
               setMode("requests");
               setQuery("");
             }}
-            className={`text-xs px-3 py-1 rounded-lg ${
+className={`text-xs px-3 py-1 rounded-lg ${
               mode === "requests"
-                ? "bg-indigo-500"
-                : "bg-white/10 hover:bg-white/20"
+                ? "bg-orange-500 text-white"
+                : "bg-[#2b1f16]/10 hover:bg-[#2b1f16]/15 text-[#2b1f16] dark:bg-white/10 dark:hover:bg-white/20 dark:text-white"
             }`}
           >
             Requests

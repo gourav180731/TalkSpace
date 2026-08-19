@@ -29,10 +29,10 @@ export default function DashboardPage() {
   }, [searchParams, setSearchParams]);
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-[#0b0d12]">
+    <div className="min-h-screen relative overflow-hidden bg-[#fff7ed] dark:bg-[#16120F]">
       {/* Background glow */}
-      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-indigo-600/20 blur-[140px]" />
-      <div className="absolute top-40 -right-40 w-[400px] h-[400px] bg-blue-500/20 blur-[140px]" />
+      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-orange-600/20 blur-[140px]" />
+      <div className="absolute top-40 -right-40 w-[400px] h-[400px] bg-teal-500/20 blur-[140px]" />
 
       {/* Grid */}
       <div className="absolute inset-0 bg-grid pointer-events-none opacity-20" />
@@ -49,9 +49,9 @@ export default function DashboardPage() {
             h-[calc(100vh)] md:h-[calc(100vh-8rem)]
             overflow-hidden
             md:rounded-3xl
-            bg-[#121520]/90
+            bg-[#f6ead9]/90 dark:bg-[#1D1712]/90
             backdrop-blur-xl
-            border border-white/10
+            border border-orange-200/60 dark:border-white/10
             shadow-2xl shadow-black/40
           "
         >
@@ -82,7 +82,7 @@ export default function DashboardPage() {
 
       {/* MOBILE CHAT FULLSCREEN */}
       {selectedChat && (
-        <div className="md:hidden fixed inset-0 z-[60] bg-[#0b0d12]">
+        <div className="md:hidden fixed inset-0 z-[60] bg-[#fff7ed] dark:bg-[#16120F]">
           <ChatWindow
             chat={selectedChat}
             onBack={() => setSelectedChat(null)}
@@ -101,3 +101,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

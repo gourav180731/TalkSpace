@@ -10,6 +10,9 @@ import { AuthProvider } from "./context/AuthContext";
 import { PresenceProvider } from "./context/PresenceContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import { CallProvider } from "./context/CallContext";
+import { getTheme, setTheme } from "./utils/theme";
+
+setTheme(getTheme());
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -20,8 +23,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <CallProvider>
         <MantineProvider
           theme={{
-            fontFamily: "Inter, sans-serif",
-            primaryColor: "indigo",
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            primaryColor: "orange",
           }}
         >
           <App />

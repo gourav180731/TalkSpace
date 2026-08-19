@@ -227,10 +227,10 @@ export default function MessageInput({
       onPointerUp={stopRecording}
     >
 
-      <div className="bg-white/20 backdrop-blur-md rounded-2xl px-2 sm:px-3 py-1.5 sm:py-2">
+      <div className="bg-orange-100/70 backdrop-blur-md rounded-2xl px-2 sm:px-3 py-1.5 sm:py-2 dark:bg-white/20">
 
         {recording && !lockedRecording && (
-          <div className="text-xs text-white mb-1 flex justify-between">
+          <div className="text-xs text-[#2b1f16] mb-1 flex justify-between dark:text-white">
             <span>⬅ slide left to cancel</span>
             <span className="font-mono">🎙 {formatTime(recordTime)}</span>
             <span>⬆ slide up to lock</span>
@@ -238,7 +238,7 @@ export default function MessageInput({
         )}
 
         {lockedRecording && (
-          <div className="flex items-center gap-2 mb-1 text-white text-xs">
+          <div className="flex items-center gap-2 mb-1 text-[#2b1f16] text-xs dark:text-white">
             <span className="font-mono">🎙 {formatTime(recordTime)}</span>
             <span>🔒 Recording locked</span>
 
@@ -252,7 +252,7 @@ export default function MessageInput({
         )}
 
         {replyTo && (
-          <div className="mb-1 flex items-center gap-2 px-2 py-0.5 text-xs rounded-lg bg-black/30 text-white">
+          <div className="mb-1 flex items-center gap-2 px-2 py-0.5 text-xs rounded-lg bg-[#2b1f16]/10 text-[#2b1f16] dark:bg-black/30 dark:text-white">
             <div className="flex-1 min-w-0">
               <div className="opacity-70 truncate">
                 {replyTo.senderId === user._id ? "You" : replyTo.senderName || "User"}
@@ -268,7 +268,7 @@ export default function MessageInput({
         )}
 
         {pendingFile && (
-          <div className="mb-1 flex items-center gap-2 px-2 py-1 text-xs rounded-lg bg-white/20 text-white">
+          <div className="mb-1 flex items-center gap-2 px-2 py-1 text-xs rounded-lg bg-[#2b1f16]/10 text-[#2b1f16] dark:bg-white/20 dark:text-white">
 
             {pendingFile.type.startsWith("audio") ? (
               <audio controls className="flex-1">
@@ -287,7 +287,7 @@ export default function MessageInput({
 
         <div className="relative flex items-center gap-2 min-h-[35px]">
 
-          <label className="cursor-pointer text-white/80">
+          <label className="cursor-pointer text-[#2b1f16]/70 dark:text-white/80">
             <Paperclip size={20}/>
             <input
               ref={fileInputRef}
@@ -300,7 +300,7 @@ export default function MessageInput({
           {!text && !pendingFile && !recording && (
             <button
               onPointerDown={startRecording}
-              className="text-white/80"
+              className="text-[#2b1f16]/70 dark:text-white/80"
             >
               <Mic size={20}/>
             </button>
@@ -312,7 +312,7 @@ export default function MessageInput({
               e.stopPropagation();
               setShowEmoji((prev) => !prev);
             }}
-            className="hidden md:flex text-white/80"
+            className="hidden md:flex text-[#2b1f16]/70 dark:text-white/80"
           >
             <Smile size={20}/>
           </button>
@@ -334,14 +334,14 @@ export default function MessageInput({
                 send();
               }
             }}
-            className="flex-1 bg-transparent text-white text-sm placeholder-white/50 outline-none"
+            className="flex-1 bg-transparent text-[#2b1f16] placeholder-[#2b1f16]/40 outline-none dark:text-white dark:placeholder-white/50"
             placeholder="Type a message..."
           />
 
           <button
             onClick={() => send()}
             disabled={!text.trim() && !pendingFile}
-            className="w-9 h-9 rounded-full flex items-center justify-center bg-indigo-500 text-white disabled:opacity-40"
+            className="w-9 h-9 rounded-full flex items-center justify-center bg-gradient-to-br from-orange-500 to-amber-500 text-white disabled:opacity-40"
           >
             <Send size={16}/>
           </button>

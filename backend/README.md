@@ -1,15 +1,15 @@
-# 🚀 ChitChat Backend
+# 🚀 TalkSpace Backend
 
-ChitChat Backend is a **production-grade real-time communication server** built with
+TalkSpace Backend is a **production-grade real-time communication server** built with
 **Node.js, Express, TypeScript, MongoDB, Socket.IO, and WebRTC signaling**.
 
-It powers **authentication, messaging, friendships, notifications, media handling, and real-time audio/video communication**, forming the backbone of the ChitChat platform.
+It powers **authentication, messaging, friendships, notifications, media handling, and real-time audio/video communication**, forming the backbone of the TalkSpace platform.
 
 ---
 
 ## 🌐 Live API
 
-⚡ https://chitchatt.tech/api
+> The live API endpoint is deployed separately — check your server configuration for the production URL.
 
 > Handles authentication, messaging, real-time events, and WebRTC signaling.
 
@@ -255,7 +255,7 @@ POST /read-all
 
 ```env id="env992"
 PORT=5000
-MONGO_URI=mongodb://localhost:27017/chitchat
+MONGO_URI=mongodb://localhost:27017/talkspace
 
 JWT_SECRET=your_jwt_secret
 JWT_REFRESH_SECRET=your_refresh_secret
@@ -288,8 +288,8 @@ Server runs on: `http://localhost:5000`
 ## 🐳 Docker
 
 ```bash id="dock992"
-docker build -t chitchat-backend .
-docker run -p 5000:5000 chitchat-backend
+docker build -t talkspace-backend .
+docker run -p 5000:5000 talkspace-backend
 ```
 
 ---
@@ -329,4 +329,4 @@ npm start            # Production server
 
 ## 📄 License
 
-This project is intended for learning, portfolio, and development use.
+This project is intended for learning, portfolio, and development use. See [LICENSE](../LICENSE).

@@ -16,11 +16,11 @@ async function createBotUser() {
   await mongoose.connect(MONGO_URI);
 
   const botUser = await User.findOneAndUpdate(
-    { username: "chitchat_ai" }, 
+    { username: "talkspace_ai" }, 
     {
-      name: "ChitChat AI 🤖",
-      username: "chitchat_ai",
-      email: "bot@chitchat.app",
+      name: "Echo",
+      username: "talkspace_ai",
+      email: "bot@talkspace.app",
       avatar: BOT_AVATAR_URL,
       isBot: true,
       isOnline: false, 

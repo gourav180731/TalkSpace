@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useNotifications } from "../../context/NotificationContext";
+import ThemeToggle from "../../utils/theme.tsx";
 
 type Props = {
   active?: "home" | "profile" | "notifications";
@@ -28,20 +29,30 @@ export default function AppNavbar({
   const tabClass = (key: string) =>
     `relative transition ${
       active === key
-        ? "text-white font-semibold"
-        : "text-white/70 hover:text-white"
+        ? "text-[#2b1f16] font-semibold dark:text-white"
+        : "text-[#2b1f16]/70 hover:text-[#2b1f16] dark:text-white/70 dark:hover:text-white"
     }`;
 
   return (
-    <div className="fixed top-3 left-1/2 -translate-x-1/2 w-[93%] max-w-6xl backdrop-blur-xl bg-white/25 border border-white/30 shadow-lg rounded-2xl px-6 py-3 flex justify-between items-center z-[100]">
-      <h1
-        className="text-white text-xl font-bold cursor-pointer"
+    <div className="fixed top-3 left-1/2 -translate-x-1/2 w-[93%] max-w-6xl backdrop-blur-xl bg-white/70 border border-orange-200/60 shadow-lg rounded-2xl px-6 py-3 flex justify-between items-center z-[100] dark:bg-white/25 dark:border-white/30">
+      <div
+        className="flex items-center gap-2 cursor-pointer"
         onClick={() => go("/dashboard")}
       >
-        ChitChat
-      </h1>
+        <img
+          src="/talkspace-icon.svg"
+          alt="TalkSpace"
+          className="w-7 h-7 rounded-lg"
+        />
+        <span
+          className="text-[#2b1f16] text-xl font-bold tracking-wide dark:text-white"
+          style={{ fontFamily: "'Fraunces', Georgia, serif" }}
+        >
+          TalkSpace
+        </span>
+      </div>
 
-      <div className="hidden sm:flex gap-6 items-center text-white font-medium">
+      <div className="hidden sm:flex gap-6 items-center font-medium">
         <button onClick={() => go("/dashboard")} className={tabClass("home")}>
           Home
         </button>
@@ -56,15 +67,17 @@ export default function AppNavbar({
         >
           Notifications
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-2 text-[10px] px-1.5 py-0.5 rounded-full bg-red-500 text-white">
+            <span className="absolute -top-1 -right-2 text-[10px] px-1.5 py-0.5 rounded-full bg-orange-500 text-white">
               {unreadCount}
             </span>
           )}
         </button>
 
+        <ThemeToggle />
+
         <button
           onClick={handleLogout}
-          className="text-red-300 hover:text-red-400"
+          className="text-red-500 hover:text-red-600 dark:text-red-300 dark:hover:text-red-400"
         >
           Logout
         </button>

@@ -1,6 +1,6 @@
-# 🎨 ChitChat Frontend
+# 🎨 TalkSpace Frontend
 
-ChitChat Frontend is a **production-grade real-time communication UI** built with
+TalkSpace Frontend is a **production-grade real-time communication UI** built with
 **React, TypeScript, Vite, Tailwind CSS, Socket.IO, and WebRTC**.
 
 It delivers a complete messaging experience including **real-time chat, media sharing, voice messaging, and audio/video calling**, all wrapped in a scalable and clean architecture.
@@ -9,7 +9,7 @@ It delivers a complete messaging experience including **real-time chat, media sh
 
 ## 🌐 Live Demo
 
-🚀 https://chitchatt.tech
+> The live demo is hosted separately — check your deployment configuration for the production URL.
 
 * 🔐 Create an account or log in
 * 💬 Experience real-time messaging
@@ -189,8 +189,8 @@ App runs on: `http://localhost:5173`
 ## 🐳 Docker
 
 ```bash
-docker build -t chitchat-frontend .
-docker run -p 5173:80 chitchat-frontend
+docker build -t talkspace-frontend .
+docker run -p 5173:80 talkspace-frontend
 ```
 
 ---
@@ -246,4 +246,4 @@ npm run preview     # Preview production build
 
 ## 📄 License
 
-This project is intended for learning, portfolio, and development use.
+This project is intended for learning, portfolio, and development use. See [LICENSE](../LICENSE).

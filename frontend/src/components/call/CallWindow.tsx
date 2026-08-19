@@ -63,7 +63,7 @@ const STYLES = `
     position: fixed; inset: 0; z-index: 999;
     display: flex; flex-direction: column;
     color: #fff;
-    background: linear-gradient(170deg,#0a0d14 0%,#111827 55%,#0c1a2e 100%);
+    background: linear-gradient(170deg,#1c1511 0%,#2b1b12 55%,#0f1d1a 100%);
   }
 
   /* ── Call window — desktop: centered card ── */
@@ -95,7 +95,7 @@ const STYLES = `
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     color: #fff;
-    background: linear-gradient(170deg,#0a0d14 0%,#111827 55%,#0c1a2e 100%);
+    background: linear-gradient(170deg,#1c1511 0%,#2b1b12 55%,#0f1d1a 100%);
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
@@ -408,7 +408,7 @@ function ActiveCallWindow({
               transform: "translateX(-50%)",
               width: "clamp(260px,50%,480px)", height: "clamp(260px,50%,480px)",
               borderRadius: "50%",
-              background: "radial-gradient(circle, rgba(79,70,229,.13) 0%, transparent 68%)",
+              background: "radial-gradient(circle, rgba(249,115,22,.14) 0%, transparent 68%)",
               pointerEvents: "none",
             }} />
             <div style={{
@@ -440,7 +440,7 @@ function ActiveCallWindow({
                 <span style={{
                   position: "absolute", bottom: 3, right: 3,
                   width: 13, height: 13, borderRadius: "50%",
-                  background: "#22c55e", border: "2px solid #0a0d14",
+                  background: "#22c55e", border: "2px solid #16120F",
                 }} />
               )}
             </div>
@@ -596,7 +596,7 @@ function IncomingCallOverlay({ remoteName, remoteAvatar, callType, onAccept, onR
       <div style={{
         position: "absolute", top: "5%", left: "50%", transform: "translateX(-50%)",
         width: "72%", height: "72%", borderRadius: "50%",
-        background: "radial-gradient(circle, rgba(79,70,229,.12) 0%, transparent 65%)",
+        background: "radial-gradient(circle, rgba(249,115,22,.14) 0%, transparent 65%)",
         pointerEvents: "none",
       }} />
 

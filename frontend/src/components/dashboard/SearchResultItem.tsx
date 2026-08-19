@@ -73,7 +73,7 @@ export default function SearchResultItem({ user }: Props) {
             className="
               text-xs px-3 py-1.5
               rounded-lg
-              bg-indigo-500 hover:bg-indigo-600
+              bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400
               text-white
             "
           >

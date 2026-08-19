@@ -46,8 +46,8 @@ function MessageBubble({ msg, onReply, onJump, onDeleteForMe }: any) {
         onContextMenu={e => { e.preventDefault(); setShowActions(true); }}
         className={`
           relative w-fit min-w-0 max-w-[80%] px-4 py-2 rounded-2xl text-sm
-          leading-relaxed whitespace-pre-wrap break-words backdrop-blur-md
-          ${isMe ? "bg-indigo-600 text-white rounded-br-sm" : "bg-white/20 text-white rounded-bl-sm"}
+          leading-relaxed whitespace-pre-wrap break-words backdrop-blur-md animate-msg
+          ${isMe ? "bubble-me text-white rounded-br-sm" : "bubble-them text-[#2b1f16] rounded-bl-sm dark:text-white"}
         `}
       >
         {/* ACTIONS */}
@@ -91,7 +91,7 @@ function MessageBubble({ msg, onReply, onJump, onDeleteForMe }: any) {
             {/* REPLY PREVIEW */}
             {msg.replyTo && (
               <div
-                className="relative z-10 mb-2 px-3 py-2 rounded-lg bg-black/25 border-l-4 border-indigo-400 text-xs cursor-pointer hover:bg-black/30"
+                className="relative z-10 mb-2 px-3 py-2 rounded-lg bg-black/25 border-l-4 border-orange-400 text-xs cursor-pointer hover:bg-black/30"
                 onClick={e => { e.stopPropagation(); const id = msg.replyTo._id ?? msg.replyTo.clientId; if (id) onJump?.(id.toString()); }}
               >
                 <div className="opacity-70 mb-1">
@@ -110,9 +110,9 @@ function MessageBubble({ msg, onReply, onJump, onDeleteForMe }: any) {
                   {isMe && (
                     <>
                       {msg.status === "sending"   && <Clock size={12} />}
-                      {msg.status === "sent"       && !msg.isRead && <Check size={14} />}
-                      {msg.status === "delivered"  && !msg.isRead && <CheckCheck size={14} />}
-                      {msg.isRead && <CheckCheck size={14} className="text-blue-400" />}
+                      {msg.status === "sent"       && !msg.isRead && <Check size={14} className="sent-pulse" />}
+                      {msg.status === "delivered"  && !msg.isRead && <CheckCheck size={14} className="sent-pulse" />}
+                      {msg.isRead && <CheckCheck size={14} className="text-teal-300 sent-pulse" />}
                     </>
                   )}
                 </span>
@@ -150,7 +150,7 @@ function MessageBubble({ msg, onReply, onJump, onDeleteForMe }: any) {
                 acc[r.emoji] = (acc[r.emoji] || 0) + 1; return acc;
               }, {} as Record<string, number>)
             ) as [string, number][]).map(([emoji, count]) => (
-              <span key={emoji} className="px-2 py-0.5 text-xs bg-white/20 rounded-full">
+              <span key={emoji} className="px-2 py-0.5 text-xs bg-[#2b1f16]/10 rounded-full reaction-pop dark:bg-white/20">
                 {emoji} {count}
               </span>
             ))}

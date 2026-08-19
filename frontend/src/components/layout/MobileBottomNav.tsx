@@ -95,10 +95,10 @@ export default function MobileBottomNav({
               relative mx-1
               w-[52px] h-[52px]
               rounded-[16px]
-              bg-gradient-to-br from-violet-500 via-purple-500 to-cyan-500
+              bg-gradient-to-br from-orange-500 via-amber-500 to-teal-500
               flex items-center justify-center
-              shadow-[0_4px_20px_rgba(139,92,246,0.55)]
-              hover:shadow-[0_4px_28px_rgba(139,92,246,0.75)]
+              shadow-[0_4px_20px_rgba(249,115,22,0.55)]
+              hover:shadow-[0_4px_28px_rgba(249,115,22,0.75)]
               hover:scale-105
               active:scale-95
               transition-all duration-200

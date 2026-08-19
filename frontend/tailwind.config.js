@@ -17,14 +17,14 @@ export default {
     themes: [
       {
         mytheme: {
-          primary: "#2563EB",
-          secondary: "#3B82F6",
-          accent: "#1E40AF",
+          primary: "#F97316",
+          secondary: "#0F766E",
+          accent: "#F59E0B",
 
-          "base-100": "#F8FAFC",
-          neutral: "#0F172A",
+          "base-100": "#FFF7ED",
+          neutral: "#131110",
 
-          success: "#22C55E",
+          success: "#14B8A6",
           warning: "#F5900B",
           error: "#EF4444",
         },

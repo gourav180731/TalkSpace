@@ -2,8 +2,8 @@ version: "3.9"
 
 services:
   backend:
-    image: rajkrr/chat_app_backend:latest
-    container_name: backend_c
+    image: gourav180731/talkspace_backend:latest
+    container_name: talkspace_backend
     env_file:
       - ./backend/.env
     ports:
@@ -11,8 +11,8 @@ services:
     restart: always
 
   frontend:
-    image: rajkrr/chat_app_frontend:latest
-    container_name: frontend_c
+    image: gourav180731/talkspace_frontend:latest
+    container_name: talkspace_frontend
     ports:
       - "8080:80"
     restart: always

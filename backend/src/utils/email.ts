@@ -14,7 +14,7 @@ export const sendVerificationMail = async (
 
     await sendEmail({
       to: email,
-      subject: "OTP verification",
+      subject: "Verify your TalkSpace account",
       html: `
 <div style="font-family: Arial, sans-serif; max-width: 400px; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
   <h2 style="color: #333;">Verify Your Account</h2>
@@ -34,7 +34,7 @@ export const sendVerificationMail = async (
   </p>
 
   <p style="font-size: 14px; color: #555; margin-top: 30px;">
-    — The ChitChat Team
+    — The TalkSpace Team
   </p>
 </div>
       `,
@@ -51,13 +51,13 @@ export const welcomeEmail = async (email: string, name: string) => {
   try {
     await sendEmail({
       to: email,
-      subject: "Welcome to our community",
+      subject: "Welcome to TalkSpace",
       html: `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8" />
-  <title>Welcome to ChitChat Community</title>
+  <title>Welcome to the TalkSpace Community</title>
 </head>
 <body style="margin:0; padding:0; background:#f4f4f4; font-family:Arial, sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="padding:20px 0;">
@@ -67,7 +67,7 @@ export const welcomeEmail = async (email: string, name: string) => {
           
           <tr>
             <td align="center" style="background:#4f46e5; padding:25px; color:#ffffff;">
-              <h1 style="margin:0; font-size:26px;">Welcome to ChitChat 🎉</h1>
+              <h1 style="margin:0; font-size:26px;">Welcome to TalkSpace 🎉</h1>
             </td>
           </tr>
 
@@ -76,7 +76,7 @@ export const welcomeEmail = async (email: string, name: string) => {
               <p style="font-size:16px;">Hi ${name},</p>
 
               <p style="font-size:15px; line-height:1.6;">
-                Thank you for joining <strong>ChitChat</strong>!  
+                Thank you for joining <strong>TalkSpace</strong>!  
                 Your account has been successfully created.
               </p>
 
@@ -88,14 +88,14 @@ export const welcomeEmail = async (email: string, name: string) => {
 
               <p style="font-size:14px; color:#777;">
                 Cheers,<br/>
-                The ChitChat Team
+                The TalkSpace Team
               </p>
             </td>
           </tr>
 
           <tr>
             <td align="center" style="background:#f0f0f0; padding:15px; font-size:12px; color:#555;">
-              © 2025 ChitChat. All rights reserved.
+              © ${new Date().getFullYear()} TalkSpace. All rights reserved.
             </td>
           </tr>
 
@@ -140,7 +140,7 @@ export const forgetPasswordOtpMail = async (
 
     <p style="margin-top:25px;">
       Regards,<br/>
-      <b>The ChitChat Team</b>
+      <b>The TalkSpace Team</b>
     </p>
   </div>
 </body>

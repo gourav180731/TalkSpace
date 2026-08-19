@@ -1,7 +1,7 @@
 {
-  "name": "backend",
+  "name": "talkspace-backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "TalkSpace real-time communication server",
   "main": "dist/index.js",
   "scripts": {
     "dev": "nodemon --watch \"src/**/*.ts\" --exec \"npx ts-node\" src/index.ts",
@@ -9,7 +9,7 @@
     "start": "node dist/index.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "Gourav",
   "license": "ISC",
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

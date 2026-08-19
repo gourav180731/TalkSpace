@@ -10,10 +10,10 @@ export default function NotificationsPage() {
   const navVisible = useScrollDirection();
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-[#0b0d12]">
+    <div className="min-h-screen relative overflow-hidden bg-[#fff7ed] dark:bg-[#16120F]">
       {/* Background glow */}
-      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-indigo-600/20 blur-[140px]" />
-      <div className="absolute top-40 -right-40 w-[400px] h-[400px] bg-blue-500/20 blur-[140px]" />
+      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-orange-600/20 blur-[140px]" />
+      <div className="absolute top-40 -right-40 w-[400px] h-[400px] bg-teal-500/20 blur-[140px]" />
 
       {/* Background grid */}
       <div className="absolute inset-0 bg-grid pointer-events-none opacity-20" />
@@ -24,7 +24,7 @@ export default function NotificationsPage() {
       </div>
 
       {/* MOBILE HEADER */}
-      <div className="md:hidden flex items-center gap-3 px-4 py-4 text-white relative z-10">
+      <div className="md:hidden flex items-center gap-3 px-4 py-4 text-[#2b1f16] relative z-10 dark:text-white">
         <button
           onClick={() => navigate(-1)}
           className="p-2 rounded-full hover:bg-white/10 active:scale-95 transition"
@@ -49,3 +49,4 @@ export default function NotificationsPage() {
     </div>
   );
 }
+
