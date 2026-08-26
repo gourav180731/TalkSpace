@@ -153,17 +153,26 @@ useEffect(() => {
       if (by === chatId) {
         setMessages((prev: any[]) =>
           prev.map(m =>
-            m.senderId === userId
-              ? { ...m, isRead: true }
+            m.senderId === userId || String(m.senderId)===String(userId) || String(m.senderId?._id)===String(userId)
+              ? { ...m, isRead: true, status:"read" }
               : m
           )
         );
       }
     };
+    const onDelivered = ({ messageId }: any) => {
+      setMessages((prev:any[])=> prev.map(m=> m._id===messageId || m.clientId===messageId ? {...m, status:"delivered"}:m));
+    };
+    const onEdited = ({ messageId, newText }: any) => {
+      setMessages((prev:any[])=> prev.map(m=> m._id===messageId ? {...m, text:newText, isEdited:true}:m));
+    };
+    const onStopTyping = ({ from }: any) => { if(from===chatId) setIsTyping(false); };
 
     socket.on("messages-read", onMessagesRead);
-    return () => {socket.off("messages-read", onMessagesRead)
-  };
+    socket.on("message-delivered", onDelivered);
+    socket.on("message-edited", onEdited);
+    socket.on("stop-typing", onStopTyping);
+    return () => {socket.off("messages-read", onMessagesRead); socket.off("message-delivered", onDelivered); socket.off("message-edited", onEdited); socket.off("stop-typing", onStopTyping); };
   }, [chatId, userId, setMessages]);
 
   const markRead = async () => {

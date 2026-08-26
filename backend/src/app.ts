@@ -13,6 +13,14 @@ import friendRoute from "./routes/friendRoute";
 import { healthCheck } from "./controllers/health.controller";
 import notificationRoutes from "./routes/notificationRoute";
 import { globalLimiter } from "./middlewares/rateLimiter";
+import groupRoute from "./routes/groupRoute";
+import statusRoute from "./routes/statusRoute";
+import privacyRoute from "./routes/privacyRoute";
+import settingsRoute from "./routes/settingsRoute";
+import contactRoute from "./routes/contactRoute";
+import chatManagementRoute from "./routes/chatManagementRoute";
+import searchRoute from "./routes/searchRoute";
+import stickerRoute from "./routes/stickerRoute";
 const app: Application = express();
 
 const allowedOrigins = [
@@ -52,5 +60,13 @@ app.use("/api/me", meRoutes);
 app.use("/api/message", messageRoute);
 app.use("/api/friends", friendRoute);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/groups", groupRoute);
+app.use("/api/status", statusRoute);
+app.use("/api/privacy", privacyRoute);
+app.use("/api/settings", settingsRoute);
+app.use("/api/contacts", contactRoute);
+app.use("/api/chat-management", chatManagementRoute);
+app.use("/api/search", searchRoute);
+app.use("/api/stickers", stickerRoute);
 
 export default app;

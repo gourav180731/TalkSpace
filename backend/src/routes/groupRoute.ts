@@ -1,0 +1,26 @@
+import express from "express";
+import { authMiddleware } from "../middlewares/auth.middleware";
+import { upload } from "../libs/multer";
+import * as c from "../controllers/groups/group.controller";
+import { groupPermissionMiddleware, requireGroupAdmin } from "../middlewares/groupPermission.middleware";
+import { groupCreationLimiter } from "../middlewares/rateLimiter";
+
+const router=express.Router();
+router.post("/create", authMiddleware, groupCreationLimiter, upload.single("avatar"), c.createGroup);
+router.get("/", authMiddleware, c.getMyGroups);
+router.get("/:groupId", authMiddleware, groupPermissionMiddleware, c.getGroupDetails);
+router.patch("/:groupId", authMiddleware, groupPermissionMiddleware, upload.single("avatar"), c.updateGroup);
+router.delete("/:groupId/leave", authMiddleware, groupPermissionMiddleware, c.leaveGroup);
+router.post("/:groupId/members", authMiddleware, groupPermissionMiddleware, c.addMember);
+router.delete("/:groupId/members/:memberId", authMiddleware, groupPermissionMiddleware, c.removeMember);
+router.patch("/:groupId/admins/:memberId/promote", authMiddleware, groupPermissionMiddleware, c.promoteToAdmin);
+router.patch("/:groupId/admins/:memberId/demote", authMiddleware, groupPermissionMiddleware, c.demoteAdmin);
+router.get("/:groupId/messages", authMiddleware, groupPermissionMiddleware, c.getGroupMessages);
+router.post("/:groupId/messages", authMiddleware, groupPermissionMiddleware, upload.single("file"), c.sendGroupMessage);
+router.delete("/:groupId/messages/:messageId", authMiddleware, groupPermissionMiddleware, c.deleteGroupMessage);
+router.patch("/:groupId/messages/:messageId/edit", authMiddleware, groupPermissionMiddleware, c.editGroupMessage);
+router.post("/:groupId/messages/:messageId/react", authMiddleware, groupPermissionMiddleware, c.reactToGroupMessage);
+router.post("/:groupId/messages/:messageId/pin", authMiddleware, groupPermissionMiddleware, requireGroupAdmin, c.pinMessage);
+router.delete("/:groupId/messages/:messageId/unpin", authMiddleware, groupPermissionMiddleware, requireGroupAdmin, c.unpinMessage);
+router.get("/:groupId/pinned", authMiddleware, groupPermissionMiddleware, c.getPinnedMessages);
+export default router;

@@ -1,15 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 168" width="640" height="168">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#FF7A59"/>
-      <stop offset="1" stop-color="#F59E0B"/>
+      <stop offset="0" stop-color="#FFC545"/>
+      <stop offset="1" stop-color="#FF9F1C"/>
     </linearGradient>
   </defs>
-  <rect x="8" y="8" width="152" height="152" rx="40" fill="url(#bg)"/>
-  <path d="M46 84c0-24 20-44 44-44h22c24 0 44 20 44 44v22c0 24-20 44-44 44h-4v20a6 6 0 0 1-10 4l-19-19h-11c-24 0-44-20-44-44v-27z"
-        fill="#FFF7ED"/>
-  <text x="78" y="105" text-anchor="middle" font-size="82" font-weight="800" font-family="Georgia, 'Times New Roman', serif" fill="#0F766E">T</text>
-  <text x="188" y="112" font-size="86" font-weight="700" font-family="Georgia, 'Times New Roman', serif" fill="#29190F">
+  <rect x="8" y="8" width="152" height="152" rx="42" fill="url(#bg)" transform="rotate(-4 84 84)"/>
+  <path d="M32 46 h96 a16 16 0 0 1 16 16 v50 a16 16 0 0 1 -16 16 h-26 l-10 16 a5 5 0 0 1 -9 -4 l2 -12 h-53 a16 16 0 0 1 -16 -16 v-50 a16 16 0 0 1 16 -16 z" fill="#FFF6E0"/>
+  <rect x="52" y="56" width="56" height="16" rx="5" fill="#2B1F16"/>
+  <rect x="72" y="66" width="16" height="58" rx="7" fill="#2B1F16"/>
+  <text x="192" y="110" font-size="78" font-weight="800" letter-spacing="-2" font-family="'Baloo 2', 'Plus Jakarta Sans', Arial, sans-serif" fill="#2B1F16">
     TalkSpace
   </text>
 </svg>

@@ -8,8 +8,10 @@ export function useSidebar() {
   const [chats, setChats] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [query, setQuery] = useState("");
-  const [mode, setMode] = useState<"chats" | "requests">("chats");
+  const [mode, setMode] = useState<"chats" | "requests" | "starred" | "archived">("chats");
   const [friends, setFriends] = useState<any[]>([]);
+  const [archivedIds, setArchivedIds] = useState<Set<string>>(new Set());
+  const [selectMode, setSelectMode] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
 
@@ -33,6 +35,12 @@ export function useSidebar() {
     try {
       const res = await getChatListApi();
       setChats(Array.isArray(res.data?.chats) ? res.data.chats : []);
+      // also load archived ids
+      try{
+        const { getArchivedChats } = await import("../../apis/chatManagement.api");
+        const ar = await getArchivedChats();
+        setArchivedIds(new Set((ar.data.archived||[]).map((a:any)=> a.chatId)));
+      }catch{}
     } catch {
       setChats([]);
     }
@@ -129,5 +137,9 @@ export function useSidebar() {
     mode,
     setMode,
     loadChats,
+    archivedIds,
+    setArchivedIds,
+    selectMode,
+    setSelectMode,
   };
 }

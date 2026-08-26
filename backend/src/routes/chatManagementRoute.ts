@@ -1,0 +1,18 @@
+import express from "express";
+import { authMiddleware } from "../middlewares/auth.middleware";
+import * as c from "../controllers/chatManagement/chatManagement.controller";
+const router=express.Router();
+router.post("/pin", authMiddleware, c.pinChat);
+router.delete("/pin/:chatId", authMiddleware, c.unpinChat);
+router.post("/archive", authMiddleware, c.archiveChat);
+router.delete("/archive/:chatId", authMiddleware, c.unarchiveChat);
+router.get("/archived", authMiddleware, c.getArchivedChats);
+router.post("/mute", authMiddleware, c.muteChat);
+router.delete("/mute/:chatId", authMiddleware, c.unmuteChat);
+router.post("/favourite", authMiddleware, c.toggleFavourite);
+router.post("/lock", authMiddleware, c.toggleLock);
+router.post("/disappearing", authMiddleware, c.setDisappearing);
+router.post("/add-to-list", authMiddleware, c.addToList);
+router.post("/report", authMiddleware, c.reportUser);
+router.get("/settings/:chatId", authMiddleware, c.getChatSettings);
+export default router;

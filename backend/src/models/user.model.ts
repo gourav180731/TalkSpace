@@ -33,6 +33,13 @@ export interface IUser extends Document {
   lastSeen: Date;
   isOnline: boolean;
   isBot: boolean;
+  pinnedChats: Array<{ chatId: string; chatType: "direct" | "group"; pinnedAt: Date }>;
+  archivedChats: Array<{ chatId: string; chatType: "direct" | "group"; archivedAt: Date }>;
+  mutedChats: Array<{ chatId: string; chatType: "direct" | "group"; muteUntil: Date | null }>;
+  favouriteChats: Array<{ chatId: string; chatType: "direct" | "group"; addedAt: Date }>;
+  lockedChats: Array<{ chatId: string; chatType: "direct" | "group"; lockedAt: Date }>;
+  disappearingChats: Array<{ chatId: string; chatType: "direct" | "group"; duration: string; enabledAt: Date }>;
+  recentEmojis: string[];
 }
 
 const userSchema = new mongoose.Schema<IUser>(
@@ -89,6 +96,37 @@ const userSchema = new mongoose.Schema<IUser>(
     lastSeen: { type: Date, default: null },
     isOnline: { type: Boolean, default: false },
     isBot: { type: Boolean, default: false },
+    pinnedChats: [
+      {
+        chatId: { type: String, required: true },
+        chatType: { type: String, enum: ["direct", "group"], required: true },
+        pinnedAt: { type: Date, default: Date.now },
+      },
+    ],
+    archivedChats: [
+      {
+        chatId: { type: String, required: true },
+        chatType: { type: String, enum: ["direct", "group"], required: true },
+        archivedAt: { type: Date, default: Date.now },
+      },
+    ],
+    mutedChats: [
+      {
+        chatId: { type: String, required: true },
+        chatType: { type: String, enum: ["direct", "group"], required: true },
+        muteUntil: { type: Date, default: null },
+      },
+    ],
+    favouriteChats: [
+      { chatId: { type: String, required: true }, chatType: { type: String, enum: ["direct", "group"], required: true }, addedAt: { type: Date, default: Date.now } },
+    ],
+    lockedChats: [
+      { chatId: { type: String, required: true }, chatType: { type: String, enum: ["direct", "group"], required: true }, lockedAt: { type: Date, default: Date.now } },
+    ],
+    disappearingChats: [
+      { chatId: { type: String, required: true }, chatType: { type: String, enum: ["direct", "group"], required: true }, duration: { type: String, default: "24h" }, enabledAt: { type: Date, default: Date.now } },
+    ],
+    recentEmojis: [{ type: String }],
   },
   { timestamps: true }
 );

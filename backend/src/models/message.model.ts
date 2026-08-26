@@ -20,6 +20,10 @@ export interface IMessage extends Document {
   replyTo?: Types.ObjectId | null;
   reactions: IMessageReaction[];
   status: "sending" | "sent" | "delivered" | "read" | "failed";
+  isEdited: boolean;
+  editedAt?: Date;
+  editHistory: Array<{ originalText: string; editedAt: Date }>;
+  expiresAt?: Date;
 }
 
 
@@ -75,11 +79,22 @@ status: {
   enum: ["sending", "sent", "delivered", "read", "failed"],
   default: "sent",
 },
-
+isEdited: { type: Boolean, default: false },
+editedAt: { type: Date },
+editHistory: [
+  {
+    originalText: { type: String },
+    editedAt: { type: Date },
+  },
+],
+expiresAt: { type: Date, index: true },
 
 }, { timestamps: true },
 
 );
+
+messageSchema.index({ text: "text" });
+messageSchema.index({ chatId: 1, createdAt: -1 });
 
 const MessageModal = mongoose.model<IMessage>("Message", messageSchema);
 

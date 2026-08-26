@@ -106,10 +106,10 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#16120F] p-6 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-[#0b0d12] p-6 relative overflow-hidden">
       {/* Background glow */}
-      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-orange-600/20 blur-[140px]" />
-      <div className="absolute top-40 -right-40 w-[400px] h-[400px] bg-teal-500/20 blur-[140px]" />
+      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-indigo-600/20 blur-[140px]" />
+      <div className="absolute top-40 -right-40 w-[400px] h-[400px] bg-blue-500/20 blur-[140px]" />
 
       {/* Grid */}
       <div className="absolute inset-0 bg-grid opacity-20 pointer-events-none" />
@@ -119,7 +119,7 @@ export default function RegisterPage() {
         className="
           w-full max-w-md sm:max-w-lg
           rounded-3xl p-8
-          bg-[#1D1712]/90 backdrop-blur-xl
+          bg-[#121520]/90 backdrop-blur-xl
           border border-white/10
           shadow-2xl shadow-black/40
           fade-in
@@ -152,7 +152,7 @@ export default function RegisterPage() {
             error={usernameError}
             classNames={{
               input:
-                "bg-[#16120F] border-white/10 text-white placeholder:text-white/40",
+                "bg-[#0b0d12] border-white/10 text-white placeholder:text-white/40",
               label: "text-white/70",
             }}
           />
@@ -174,7 +174,7 @@ export default function RegisterPage() {
             error={emailError}
             classNames={{
               input:
-                "bg-[#16120F] border-white/10 text-white placeholder:text-white/40",
+                "bg-[#0b0d12] border-white/10 text-white placeholder:text-white/40",
               label: "text-white/70",
             }}
           />
@@ -192,7 +192,7 @@ export default function RegisterPage() {
             error={passwordError}
             classNames={{
               input:
-                "bg-[#16120F] border-white/10 text-white placeholder:text-white/40",
+                "bg-[#0b0d12] border-white/10 text-white placeholder:text-white/40",
               label: "text-white/70",
             }}
           />
@@ -206,11 +206,11 @@ export default function RegisterPage() {
           disabled={loading}
           onClick={handleRegister}
           className="
-            bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400
+            bg-gradient-to-r from-indigo-600 to-indigo-600 hover:from-indigo-500 hover:to-indigo-500
             text-white
             transition-all
             hover:-translate-y-0.5
-            hover:shadow-xl hover:shadow-orange-500/30
+            hover:shadow-xl hover:shadow-indigo-600/30
           "
         >
           Create Account
@@ -219,7 +219,7 @@ export default function RegisterPage() {
         <Text className="text-center text-sm text-white/60">
           Already have an account?{" "}
           <button
-            className="text-orange-400 font-semibold underline hover:text-orange-300"
+            className="text-indigo-400 font-semibold underline hover:text-indigo-300"
             onClick={() => navigate("/login")}
           >
             Login

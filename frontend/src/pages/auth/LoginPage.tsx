@@ -98,20 +98,20 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#16120F] p-6 relative overflow-hidden">
-      {/* Background glow */}
-      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-orange-600/20 blur-[140px]" />
-      <div className="absolute top-40 -right-40 w-[400px] h-[400px] bg-teal-500/20 blur-[140px]" />
+    <div className="min-h-screen flex items-center justify-center bg-[#0b0d12] p-6 relative overflow-hidden">
+      {/* Background glow spec 4 */}
+      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-indigo-600/20 blur-[140px] rounded-full pointer-events-none" />
+      <div className="absolute top-40 -right-40 w-[400px] h-[400px] bg-blue-500/20 blur-[140px] rounded-full pointer-events-none" />
 
-      {/* Grid */}
+      {/* Grid spec 5 */}
       <div className="absolute inset-0 bg-grid opacity-20 pointer-events-none" />
 
-      {/* Login Card */}
+      {/* Login Card spec 22 */}
       <div
         className="
           w-full max-w-md sm:max-w-lg
           rounded-3xl p-8
-          bg-[#1D1712]/90 backdrop-blur-xl
+          bg-[#121520]/90 backdrop-blur-xl
           border border-white/10
           shadow-2xl shadow-black/40
           fade-in
@@ -145,7 +145,7 @@ export default function LoginPage() {
             error={identifierError}
             classNames={{
               input:
-                "bg-[#16120F] border-white/10 text-white placeholder:text-white/40",
+                "bg-[#0b0d12] border-white/10 text-white placeholder:text-white/40",
               label: "text-white/70",
             }}
           />
@@ -163,7 +163,7 @@ export default function LoginPage() {
             error={passwordError}
             classNames={{
               input:
-                "bg-[#16120F] border-white/10 text-white placeholder:text-white/40",
+                "bg-[#0b0d12] border-white/10 text-white placeholder:text-white/40",
               label: "text-white/70",
             }}
           />
@@ -177,11 +177,11 @@ export default function LoginPage() {
             loading={loading}
             disabled={loading}
             className="
-              bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400
+              bg-indigo-600 hover:bg-indigo-500
               text-white
               transition-all
               hover:-translate-y-0.5
-              hover:shadow-xl hover:shadow-orange-500/30
+              hover:shadow-xl hover:shadow-indigo-600/30
             "
             onClick={handleLogin}
           >

@@ -1,0 +1,11 @@
+import express from "express";
+import { authMiddleware } from "../middlewares/auth.middleware";
+import { upload } from "../libs/multer";
+import * as c from "../controllers/settings/settings.controller";
+const router=express.Router();
+router.get("/", authMiddleware, c.getUserSettings);
+router.patch("/", authMiddleware, c.updateUserSettings);
+router.post("/chat/:chatId/wallpaper", authMiddleware, upload.single("wallpaper"), c.setChatWallpaper);
+router.patch("/chat/:chatId/theme", authMiddleware, c.setChatTheme);
+router.delete("/cache", authMiddleware, c.clearMediaCache);
+export default router;

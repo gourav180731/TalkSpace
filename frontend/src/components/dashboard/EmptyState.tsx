@@ -5,19 +5,22 @@ export default function EmptyState() {
         className="relative w-24 h-24 mb-6"
         style={{ animation: "float 5s ease-in-out infinite" }}
       >
-        <div className="absolute inset-0 bg-orange-500/20 blur-2xl rounded-full" />
+        <div className="absolute inset-0 bg-[#ffc545]/25 blur-2xl rounded-full" />
         <img
           src="/talkspace-icon.svg"
           alt="TalkSpace"
-          className="relative w-24 h-24 rounded-3xl shadow-xl shadow-orange-500/20"
+          className="relative w-24 h-24 rounded-3xl shadow-xl shadow-[#ffc545]/30 border border-[#ffc545]/30"
         />
-        <div className="absolute -right-1 -bottom-1 w-9 h-9 rounded-full bg-teal-500/90 flex items-center justify-center text-lg shadow-lg">
+        <div className="absolute -right-1 -bottom-1 w-9 h-9 rounded-full bg-[#ffc545] flex items-center justify-center text-lg shadow-lg shadow-[#ffc545]/40">
           👋
+        </div>
+        <div className="absolute -left-3 -top-2 w-6 h-6 rounded-full bg-[#ffe9a8]/60 flex items-center justify-center text-xs" style={{ animation: "float 3.5s ease-in-out infinite" }}>
+          💬
         </div>
       </div>
       <h1
-        className="text-4xl font-bold"
-        style={{ fontFamily: "'Fraunces', Georgia, serif" }}
+        className="text-4xl font-extrabold tracking-tight"
+        style={{ fontFamily: "'Baloo 2', 'Plus Jakarta Sans', system-ui, sans-serif" }}
       >
         Hey, it's quiet in here
       </h1>

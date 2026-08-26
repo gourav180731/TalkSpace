@@ -1,0 +1,13 @@
+import express from "express";
+import { authMiddleware } from "../middlewares/auth.middleware";
+import { upload } from "../libs/multer";
+import * as c from "../controllers/status/status.controller";
+import { statusRateLimiter } from "../middlewares/rateLimiter";
+const router=express.Router();
+router.post("/", authMiddleware, statusRateLimiter, upload.single("media"), c.createStatus);
+router.get("/", authMiddleware, c.getFriendsStatuses);
+router.get("/my", authMiddleware, c.getMyStatuses);
+router.get("/:statusId", authMiddleware, c.getStatusById);
+router.post("/:statusId/view", authMiddleware, c.markStatusViewed);
+router.delete("/:statusId", authMiddleware, c.deleteStatus);
+export default router;

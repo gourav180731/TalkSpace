@@ -1,0 +1,10 @@
+import express from "express";
+import { authMiddleware } from "../middlewares/auth.middleware";
+import * as c from "../controllers/settings/privacy.controller";
+const router=express.Router();
+router.get("/", authMiddleware, c.getPrivacySettings);
+router.patch("/", authMiddleware, c.updatePrivacySettings);
+router.post("/block/:userId", authMiddleware, c.blockUser);
+router.delete("/block/:userId", authMiddleware, c.unblockUser);
+router.get("/blocked", authMiddleware, c.getBlockedUsers);
+export default router;

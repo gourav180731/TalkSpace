@@ -6,6 +6,10 @@ import { useEffect, useState} from "react";
 
 import { useChatMessages } from "./hooks/useChatMessages";
 import { useChatSocket } from "./hooks/useChatSocket";
+import SearchBar from "../search/SearchBar";
+import { getGroupMessages, sendGroupMessage } from "../../apis/group.api";
+import { getUserSettings } from "../../apis/settings.api";
+import { socket } from "../../apis/socket";
 
 import { useGlobalCall } from "../../context/CallContext";
 
@@ -29,6 +33,15 @@ const formatDateLabel = (date: string) => {
 export default function ChatWindow({ chat, onBack }: any) {
   const { user } = useAuth();
   const [replyTo, setReplyTo] = useState<any>(null);
+  const [showSearch,setShowSearch]=useState(false);
+  const [wallpaper,setWallpaper]=useState<string>("");
+  const isGroup=!!chat.isGroup;
+  const [groupMessages,setGroupMessages]=useState<any[]>([]);
+  const [selectMode,setSelectMode]=useState(false);
+  const [selectedIds,setSelectedIds]=useState<Set<string>>(new Set());
+  const [showContactInfo,setShowContactInfo]=useState(false);
+  const [isLocked,setIsLocked]=useState(false);
+  const [lockChecked,setLockChecked]=useState(false);
 
 const callSocket = useGlobalCall();
   
@@ -41,17 +54,36 @@ const callSocket = useGlobalCall();
     containerRef,
     endRef,
     shouldAutoScrollRef,
-  } = useChatMessages(chat._id);
+  } = useChatMessages(isGroup? "": chat._id);
 
   const { showNewMsgBtn, setShowNewMsgBtn, isTyping, markRead } = useChatSocket(
     {
       chatId: chat._id,
       userId: user?._id,
-      setMessages,
+      setMessages: isGroup? setGroupMessages : setMessages,
       shouldAutoScrollRef,
       endRef,
     }
   );
+
+  useEffect(()=>{
+    if(isGroup){
+      getGroupMessages(chat._id).then(r=> setGroupMessages(r.data.messages||[])).catch(()=>{});
+      socket.emit("join-group",{groupId:chat._id});
+      return ()=>{ socket.emit("leave-group",{groupId:chat._id}); };
+    }
+  },[chat._id, isGroup]);
+
+  useEffect(()=>{
+    getUserSettings().then(r=>{
+      const cust=r.data.settings?.chatCustomizations?.find((c:any)=> c.chatId===chat._id);
+      if(cust?.wallpaper?.value) setWallpaper(cust.wallpaper.value);
+    }).catch(()=>{});
+    // check lock
+    import("../../apis/axios").then(({axiosInstance})=>{
+        axiosInstance.get(`/chat-management/settings/${chat._id}`).then(r=>{ setIsLocked(!!r.data.isLocked); setLockChecked(true); }).catch(()=> setLockChecked(true));
+      });
+  },[chat._id]);
 
   useEffect(() => {
     if (shouldAutoScrollRef.current) {
@@ -133,16 +165,21 @@ const scrollToMessage = async (messageId: string) => {
       await loadMessages();
     }
   };
-  const normalizedMessages = messages.map((m) => ({
+  const activeRaw = isGroup ? groupMessages : messages;
+  const normalizedMessages = activeRaw.map((m:any) => ({
     ...m,
-    __key: m._id ? `server-${m._id}` : `client-${m.clientId}`, //  prefix matters
+    __key: m._id ? `server-${m._id}` : `client-${m.clientId}`,
   }));
-
-  const visibleMessages = normalizedMessages.filter((m) => {
+  const visibleMessages = normalizedMessages.filter((m:any) => {
     if (!m._id) return true;
-
-    return !m.deletedFor?.includes(user._id);
+    if(m.deletedFor?.includes(user._id)) return false;
+    if(m.expiresAt && new Date(m.expiresAt) < new Date()) return false;
+    return true;
   });
+
+  const handleGroupSend = async (form:FormData)=>{
+    try{ const r=await sendGroupMessage(chat._id, form); setGroupMessages(prev=> [...prev, r.data.message]); }catch{}
+  };
 
   return (
     <div className="flex w-full flex-col h-full min-h-0 relative">
@@ -157,15 +194,59 @@ const scrollToMessage = async (messageId: string) => {
      
   }}
   onBack={onBack}
+  onSearch={()=> setShowSearch(!showSearch)}
+  onSelectMode={()=> setSelectMode(true)}
+  onCloseChat={()=> onBack?.()}
+  onContactInfo={()=> setShowContactInfo(true)}
 />
+    {showContactInfo && (
+      <div className="absolute inset-0 z-40 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={()=> setShowContactInfo(false)}>
+        <div onClick={e=>e.stopPropagation()} className="w-full max-w-sm bg-[#111b21] border border-white/15 rounded-2xl p-6 shadow-[0_10px_30px_rgba(0,0,0,0.6)]">
+          <div className="flex flex-col items-center gap-3">
+            <img src={chat.avatar||"/avatar-placeholder.png"} className="w-24 h-24 rounded-full object-cover" />
+            <h3 className="text-white font-semibold text-lg">{chat.username}</h3>
+            <p className="text-white/60 text-sm">{chat.email||"No email"}</p>
+            <p className="text-white/50 text-xs">{chat.bio||"Contact info"}</p>
+            <button onClick={()=> setShowContactInfo(false)} className="mt-3 px-4 py-2 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm">Close</button>
+          </div>
+        </div>
+      </div>
+    )}
+    {selectMode && (
+      <div className="flex items-center justify-between px-3 py-2 bg-indigo-600 text-white text-sm">
+        <span>{selectedIds.size} selected</span>
+        <div className="flex gap-2">
+          <button onClick={async()=>{
+            if(!confirm(`Delete ${selectedIds.size} messages?`)) return;
+            for(const id of selectedIds){ try{ await (await import("../../apis/chat.api")).deleteMessageForEveryoneApi(id); }catch{} }
+            setSelectedIds(new Set()); setSelectMode(false);
+          }} className="px-3 py-1 rounded-full bg-white/20">Delete</button>
+          <button onClick={()=>{ const ids=[...selectedIds].join(", "); navigator.clipboard.writeText(ids); alert("Copied"); }} className="px-3 py-1 rounded-full bg-white/20">Copy</button>
+          <button onClick={()=>{ setSelectMode(false); setSelectedIds(new Set()); }} className="px-3 py-1 rounded-full bg-white/10">Cancel</button>
+        </div>
+      </div>
+    )}
+    {showSearch && <SearchBar chatId={chat._id} onJump={scrollToMessage} />}
+    {lockChecked && isLocked && (
+      <div className="flex-1 flex flex-col items-center justify-center bg-[#0b0d12]/80 backdrop-blur p-6 text-center gap-4">
+        <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center text-2xl">🔒</div>
+        <p className="text-white font-medium">This chat is locked</p>
+        <button onClick={async()=>{
+          const pin=prompt("Enter PIN to unlock (demo: 1234)");
+          if(pin==="1234"||pin===""){ setIsLocked(false); } else alert("Wrong PIN");
+        }} className="px-6 py-2 rounded-full bg-indigo-600 text-white">Unlock</button>
+      </div>
+    )}
 
+      {!(lockChecked && isLocked) && (
       <div
         ref={containerRef}
         onScroll={handleScroll}
+        style={wallpaper && wallpaper.startsWith("#") ? { backgroundColor: wallpaper } : wallpaper? { background: wallpaper } : {}}
         className="
   flex-1 overflow-y-auto px-2 pt-3
-  bg-orange-50/50 backdrop-blur-xl
-  dark:bg-white/10
+  bg-transparent backdrop-blur-xl
+  dark:bg-transparent
 "
       >
         {visibleMessages.map((m, i) => {
@@ -180,9 +261,17 @@ const scrollToMessage = async (messageId: string) => {
           const showAvatar = !prev || prev.senderId !== m.senderId;
 
           return (
-            <div key={m.__key} className="w-full">
+            <div key={m.__key} className="w-full flex items-center gap-2">
+              {selectMode && (
+                <input type="checkbox" checked={selectedIds.has(m._id)} onChange={e=>{
+                  const ns=new Set(selectedIds);
+                  if(e.target.checked) ns.add(m._id); else ns.delete(m._id);
+                  setSelectedIds(ns);
+                }} className="ml-2 accent-indigo-600" />
+              )}
+              <div className="flex-1">
               {showDate && currDate && (
-                <div className="text-center my-3 text-xs text-[#2b1f16]/50 dark:text-white/60">
+                <div className="text-center my-3 text-xs text-white/60">
                   {formatDateLabel(currDate.toISOString())}
                 </div>
               )}
@@ -205,14 +294,16 @@ const scrollToMessage = async (messageId: string) => {
                   );
                 }}
               />
+              </div>
             </div>
           );
         })}
 
         <div ref={endRef} />
       </div>
+      )}
 
-      {showNewMsgBtn && (
+      {!(lockChecked && isLocked) && showNewMsgBtn && (
         <button
           onClick={() => {
             endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -223,12 +314,13 @@ const scrollToMessage = async (messageId: string) => {
            absolute bottom-[96px] md:bottom-[88px]
             left-1/2 -translate-x-1/2
             px-4 py-2 rounded-full
-            bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg
+            bg-indigo-600 text-white shadow-lg
           "
         >
           New messages ↓
         </button>
       )}
+     {!(lockChecked && isLocked) && (
      <div className="
   sticky bottom-2
   px-3
@@ -253,14 +345,32 @@ const scrollToMessage = async (messageId: string) => {
   </div>
 )}
 
-        <MessageInput
-          chatId={chat._id}
-          receiverId={chat._id}
-          onLocalSend={setMessages}
-          replyTo={replyTo}
-          clearReply={() => setReplyTo(null)}
-        />
+        {isGroup ? (
+          <MessageInput
+            chatId={chat._id}
+            receiverId={chat._id}
+            onLocalSend={(updater:any)=>{
+              // adapter for group: handle functional updater or array
+              const val= typeof updater==="function"? updater(groupMessages) : updater;
+              // if MessageInput creates temp message, push to groupMessages
+              if(Array.isArray(val)) setGroupMessages(val);
+              else if(val) setGroupMessages(prev=> [...prev, val]);
+            }}
+            replyTo={replyTo}
+            clearReply={() => setReplyTo(null)}
+            onGroupSend={handleGroupSend}
+          />
+        ) : (
+          <MessageInput
+            chatId={chat._id}
+            receiverId={chat._id}
+            onLocalSend={setMessages}
+            replyTo={replyTo}
+            clearReply={() => setReplyTo(null)}
+          />
+        )}
       </div>
+      )}
     </div>
   );
 }

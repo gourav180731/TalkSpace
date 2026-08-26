@@ -1,5 +1,5 @@
 import express from "express";
-import {clearChat, getChatList,getMessages,getMyFriends,markMessagesAsRead,sendMessages,deleteMessageForEveryone, deleteMessageForMe, reactToMessage} from "../controllers/messages/chat.controller";
+import {clearChat, getChatList,getMessages,getMyFriends,markMessagesAsRead,sendMessages,deleteMessageForEveryone, deleteMessageForMe, reactToMessage, editMessage, getEditHistory} from "../controllers/messages/chat.controller";
 import { authMiddleware } from "../middlewares/auth.middleware";
 import { upload } from "../libs/multer";
 import { chatPermissionMiddleware } from "../middlewares/chatPermission.middleware";
@@ -14,5 +14,7 @@ router.post("/send/:id",  messageLimiter,authMiddleware, chatPermissionMiddlewar
 router.delete("/chat/:messageId", authMiddleware, chatPermissionMiddleware, clearChat);
 router.delete("/:messageId", authMiddleware, deleteMessageForEveryone);
 router.delete("/me/:messageId", authMiddleware, deleteMessageForMe)
-router.post("/:messageId/react", reactToMessage);
+router.post("/:messageId/react", authMiddleware, reactToMessage);
+router.patch("/:messageId/edit", authMiddleware, editMessage);
+router.get("/:messageId/history", authMiddleware, getEditHistory);
 export default router;

@@ -27,14 +27,14 @@ export default function AppNavbar({
   };
 
   const tabClass = (key: string) =>
-    `relative transition ${
+    `nav-link relative transition text-sm font-medium ${
       active === key
-        ? "text-[#2b1f16] font-semibold dark:text-white"
-        : "text-[#2b1f16]/70 hover:text-[#2b1f16] dark:text-white/70 dark:hover:text-white"
+        ? "text-white font-semibold"
+        : "text-white/70 hover:text-white"
     }`;
 
   return (
-    <div className="fixed top-3 left-1/2 -translate-x-1/2 w-[93%] max-w-6xl backdrop-blur-xl bg-white/70 border border-orange-200/60 shadow-lg rounded-2xl px-6 py-3 flex justify-between items-center z-[100] dark:bg-white/25 dark:border-white/30">
+    <div className="fixed top-1 left-1/2 -translate-x-1/2 w-[94%] max-w-6xl bg-[#0b0d12]/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl px-6 py-3 flex justify-between items-center z-[100] transition duration-300 dark:bg-[#0b0d12]/80 light:light-navbar">
       <div
         className="flex items-center gap-2 cursor-pointer"
         onClick={() => go("/dashboard")}
@@ -42,14 +42,9 @@ export default function AppNavbar({
         <img
           src="/talkspace-icon.svg"
           alt="TalkSpace"
-          className="w-7 h-7 rounded-lg"
+          className="w-7 h-7 rounded-xl"
         />
-        <span
-          className="text-[#2b1f16] text-xl font-bold tracking-wide dark:text-white"
-          style={{ fontFamily: "'Fraunces', Georgia, serif" }}
-        >
-          TalkSpace
-        </span>
+        <span className="ts-wordmark text-2xl">TalkSpace</span>
       </div>
 
       <div className="hidden sm:flex gap-6 items-center font-medium">
@@ -72,6 +67,7 @@ export default function AppNavbar({
             </span>
           )}
         </button>
+        <button onClick={()=> go("/settings")} className={tabClass("settings" as any)}>Settings</button>
 
         <ThemeToggle />
 

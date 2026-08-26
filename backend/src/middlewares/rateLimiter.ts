@@ -48,3 +48,27 @@ export const mediumLimiter = rateLimit({
     msg: "Too many requests. Slow down.",
   },
 });
+
+export const contactSyncLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: isDev ? 100 : 3,
+  message: { success: false, msg: "Too many contact sync attempts. Try again later." },
+});
+
+export const statusRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: isDev ? 100 : 10,
+  message: { success: false, msg: "Too many statuses. Try again later." },
+});
+
+export const groupCreationLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: isDev ? 100 : 5,
+  message: { success: false, msg: "Group creation limit reached. Try tomorrow." },
+});
+
+export const searchLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: isDev ? 1000 : 30,
+  message: { success: false, msg: "Too many search requests." },
+});

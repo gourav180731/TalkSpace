@@ -95,10 +95,10 @@ export default function MobileBottomNav({
               relative mx-1
               w-[52px] h-[52px]
               rounded-[16px]
-              bg-gradient-to-br from-orange-500 via-amber-500 to-teal-500
+              bg-gradient-to-br from-[#FF6B6B] via-[#FF8E53] to-[#FF6B9D]
               flex items-center justify-center
-              shadow-[0_4px_20px_rgba(249,115,22,0.55)]
-              hover:shadow-[0_4px_28px_rgba(249,115,22,0.75)]
+              shadow-[0_4px_20px_rgba(255,107,107,0.5)]
+              hover:shadow-[0_4px_28px_rgba(255,107,107,0.7)]
               hover:scale-105
               active:scale-95
               transition-all duration-200
@@ -115,7 +115,7 @@ export default function MobileBottomNav({
             <Plus
               size={22}
               strokeWidth={2.5}
-              className="text-white relative z-10 group-hover:rotate-90 transition-transform duration-300"
+              className="text-[#2b1f16] relative z-10 group-hover:rotate-90 transition-transform duration-300"
             />
           </button>
 

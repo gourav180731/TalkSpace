@@ -10,6 +10,9 @@ import { AuthProvider } from "./context/AuthContext";
 import { PresenceProvider } from "./context/PresenceContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import { CallProvider } from "./context/CallContext";
+import { GroupProvider } from "./context/GroupContext";
+import { StatusProvider } from "./context/StatusContext";
+import { SettingsProvider } from "./context/SettingsContext";
 import { getTheme, setTheme } from "./utils/theme";
 
 setTheme(getTheme());
@@ -21,6 +24,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <PresenceProvider>
           <NotificationProvider>
           <CallProvider>
+          <GroupProvider>
+          <StatusProvider>
+          <SettingsProvider>
         <MantineProvider
           theme={{
             fontFamily: "'Plus Jakarta Sans', sans-serif",
@@ -29,6 +35,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         >
           <App />
               </MantineProvider>
+          </SettingsProvider>
+          </StatusProvider>
+          </GroupProvider>
               </CallProvider>
             </NotificationProvider>
           </PresenceProvider>

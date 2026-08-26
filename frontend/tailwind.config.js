@@ -17,16 +17,16 @@ export default {
     themes: [
       {
         mytheme: {
-          primary: "#F97316",
-          secondary: "#0F766E",
-          accent: "#F59E0B",
+          primary: "#4f46e5",
+          secondary: "#2563eb",
+          accent: "#818cf8",
 
-          "base-100": "#FFF7ED",
-          neutral: "#131110",
+          "base-100": "#0b0d12",
+          neutral: "#121520",
 
-          success: "#14B8A6",
-          warning: "#F5900B",
-          error: "#EF4444",
+          success: "#10b981",
+          warning: "#f59e0b",
+          error: "#ef4444",
         },
       },
     ],

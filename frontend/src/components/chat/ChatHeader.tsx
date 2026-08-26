@@ -1,14 +1,15 @@
-import { ArrowLeft, Phone, Video } from "lucide-react";
+import { ArrowLeft, Phone, Video, Search } from "lucide-react";
 import { usePresence } from "../../context/PresenceContext";
 import { useGlobalCall } from "../../context/CallContext";
+import ChatHeaderMenu from "./ChatHeaderMenu";
 
-export default function ChatHeader({ user, onBack }: any) {
+export default function ChatHeader({ user, onBack, onSearch, onSelectMode, onCloseChat, onContactInfo }: any) {
   const { onlineUsers, lastSeen } = usePresence();
   const callSocket = useGlobalCall();
   const isOnline = onlineUsers.has(user._id);
 
   return (
-    <div className="z-20 flex items-center gap-3 px-4 py-3 bg-orange-100/60 backdrop-blur-xl border-b border-orange-200/60 dark:bg-white/10 dark:border-white/20">
+    <div className="z-20 flex items-center gap-3 px-4 py-3 bg-[#121520]/60 backdrop-blur-xl border-b border-white/10 dark:bg-[#121520]/60 dark:border-white/10">
       {/* BACK (mobile only) */}
       <button onClick={onBack} className="md:hidden text-[#2b1f16] dark:text-white">
         <ArrowLeft size={24} />
@@ -18,7 +19,7 @@ export default function ChatHeader({ user, onBack }: any) {
       <div className="relative">
         {user.isBot ? (
           <div
-            className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-white font-bold text-lg"
+            className="w-10 h-10 rounded-full bg-gradient-to-br from-[#FF6B6B] to-[#FF8E53] flex items-center justify-center text-white font-bold text-lg shadow-md"
             style={{ fontFamily: "'Fraunces', Georgia, serif" }}
           >
             E
@@ -52,35 +53,41 @@ export default function ChatHeader({ user, onBack }: any) {
         </span>
       </div>
 
-      {/* ACTIONS */}
-      <div className="ml-auto flex items-center gap-3">
+      {/* ACTIONS spec screenshot: Video | Phone | Search | Three dots */}
+      <div className="ml-auto flex items-center gap-1">
         {!user.isBot && (
           <>
             <button
-              onClick={() => { if (callSocket.callStatus === "idle") user.onCall?.("audio"); }}
-              disabled={callSocket.callStatus !== "idle"}
-              className={`text-[#2b1f16] dark:text-white transition ${
-                callSocket.callStatus !== "idle"
-                  ? "opacity-50 cursor-not-allowed"
-                  : "hover:scale-110"
-              }`}
-            >
-              <Phone size={20} />
-            </button>
-
-            <button
               onClick={() => { if (callSocket.callStatus === "idle") user.onCall?.("video"); }}
               disabled={callSocket.callStatus !== "idle"}
-              className={`text-[#2b1f16] dark:text-white transition ${
+              className={`p-2 rounded-full hover:bg-white/10 text-white transition ${
                 callSocket.callStatus !== "idle"
                   ? "opacity-50 cursor-not-allowed"
-                  : "hover:scale-110"
+                  : ""
               }`}
+              title="Video call"
             >
               <Video size={20} />
             </button>
+
+            <button
+              onClick={() => { if (callSocket.callStatus === "idle") user.onCall?.("audio"); }}
+              disabled={callSocket.callStatus !== "idle"}
+              className={`p-2 rounded-full hover:bg-white/10 text-white transition ${
+                callSocket.callStatus !== "idle"
+                  ? "opacity-50 cursor-not-allowed"
+                  : ""
+              }`}
+              title="Voice call"
+            >
+              <Phone size={20} />
+            </button>
           </>
         )}
+        <button onClick={()=> onSearch?.()} className="p-2 rounded-full hover:bg-white/10 text-white" title="Search">
+          <Search size={20} />
+        </button>
+        <ChatHeaderMenu chat={user} onSearch={onSearch} onSelectMode={onSelectMode} onCloseChat={onCloseChat} onContactInfo={onContactInfo} />
       </div>
     </div>
   );

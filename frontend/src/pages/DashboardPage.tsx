@@ -6,6 +6,7 @@ import ChatWindow from "../components/chat/ChatWindow";
 import EmptyState from "../components/dashboard/EmptyState";
 import AppNavbar from "../components/layout/AppNavbar";
 import MobileBottomNav from "../components/layout/MobileBottomNav";
+import AppLock from "../components/dashboard/AppLock";
 import { useScrollDirection } from "../utils/useScrollDirection";
 
 export default function DashboardPage() {
@@ -29,12 +30,12 @@ export default function DashboardPage() {
   }, [searchParams, setSearchParams]);
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-[#fff7ed] dark:bg-[#16120F]">
-      {/* Background glow */}
-      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-orange-600/20 blur-[140px]" />
-      <div className="absolute top-40 -right-40 w-[400px] h-[400px] bg-teal-500/20 blur-[140px]" />
+    <div className="min-h-screen relative overflow-hidden bg-[#0b0d12] dark:bg-[#0b0d12]">
+      {/* Ambient glows spec 4 */}
+      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-indigo-600/20 blur-[140px] rounded-full pointer-events-none" />
+      <div className="absolute top-40 -right-40 w-[400px] h-[400px] bg-blue-500/20 blur-[140px] rounded-full pointer-events-none" />
 
-      {/* Grid */}
+      {/* Grid spec 5 */}
       <div className="absolute inset-0 bg-grid pointer-events-none opacity-20" />
 
       {/* DESKTOP NAVBAR */}
@@ -49,9 +50,8 @@ export default function DashboardPage() {
             h-[calc(100vh)] md:h-[calc(100vh-8rem)]
             overflow-hidden
             md:rounded-3xl
-            bg-[#f6ead9]/90 dark:bg-[#1D1712]/90
-            backdrop-blur-xl
-            border border-orange-200/60 dark:border-white/10
+            bg-[#121520]/90 backdrop-blur-xl
+            border border-white/10
             shadow-2xl shadow-black/40
           "
         >
@@ -80,9 +80,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* MOBILE CHAT FULLSCREEN */}
+      {/* MOBILE CHAT FULLSCREEN spec 10 */}
       {selectedChat && (
-        <div className="md:hidden fixed inset-0 z-[60] bg-[#fff7ed] dark:bg-[#16120F]">
+        <div className="md:hidden fixed inset-0 z-[60] bg-[#0b0d12]">
           <ChatWindow
             chat={selectedChat}
             onBack={() => setSelectedChat(null)}
@@ -98,6 +98,7 @@ export default function DashboardPage() {
           onNewChat={() => setShowFriendsPicker(true)}
         />
       )}
+      <AppLock />
     </div>
   );
 }

@@ -272,6 +272,17 @@ const allowedMimesTypes = [
       });
     }
 
+    // disappearing handling
+    let expiresAt: Date | undefined;
+    try {
+      const senderUser = await UserMOdel.findById(sender._id).select("disappearingChats");
+      const disp = senderUser?.disappearingChats?.find((c:any)=> c.chatId===receiver._id.toString());
+      if(disp){
+        const map:any={ "24h":24*60*60*1000, "7d":7*24*60*60*1000, "90d":90*24*60*60*1000 };
+        const ms=map[disp.duration]||0;
+        if(ms) expiresAt=new Date(Date.now()+ms);
+      }
+    } catch{}
     const message = await new MessageModal({
        chatId,
   senderId: sender._id,
@@ -281,6 +292,7 @@ const allowedMimesTypes = [
    mimeType: req.file ? req.file.mimetype : undefined, 
       clientId,
   status: "sent",
+  expiresAt,
   ...(replyTo && { replyTo: new Types.ObjectId(replyTo) }),
 }).save();
 
@@ -318,12 +330,18 @@ const populatedMessage = await MessageModal.findOne({
 
     const receiverSocketId = onlineUsers.get(receiverIdStr);
     const io = getIO();
+    // mark delivered if receiver online
+    if (receiverSocketId) {
+      await MessageModal.updateOne({ _id: message._id }, { $set: { status: "delivered" } });
+      (msg as any).status = "delivered";
+    }
 
        const senderSocketId = onlineUsers.get(senderIdStr);
       if (senderSocketId) {
   io.to(senderSocketId).emit("new-message", {
     message: msg,
   });
+  if (receiverSocketId) io.to(senderSocketId).emit("message-delivered", { messageId: message._id, to: receiverIdStr });
 }
     if (receiverSocketId) {
   io.to(receiverSocketId).emit("new-message", {
@@ -365,25 +383,26 @@ return res.status(200).json({
 export const markMessagesAsRead = async (req: Request, res: Response) => {
   const myId = req.user?.userId;
   const friendId = req.params.id;
-
+  const { PrivacySettings } = await import("../../models/privacySettings.model");
+  const ps = await PrivacySettings.findOne({ userId: friendId });
+  if (ps && !ps.readReceiptEnabled) {
+    // still mark but don't broadcast per privacy
+    await MessageModal.updateMany({ senderId: friendId, receiverId: myId, isRead: false }, { $set: { isRead: true, status: "read" } });
+    return res.json({ success: true });
+  }
   await MessageModal.updateMany(
     {
       senderId: friendId,
       receiverId: myId,
       isRead: false,
     },
-    { $set: { isRead: true } }
+    { $set: { isRead: true, status: "read" } }
   );
-
   const io = getIO();
-
   const friendSocket = onlineUsers.get(friendId);
   if (friendSocket) {
-    io.to(friendSocket).emit("messages-read", {
-      by: myId,
-    });
+    io.to(friendSocket).emit("messages-read", { by: myId });
   }
-
   return res.json({ success: true });
 };
 
@@ -530,4 +549,24 @@ export const reactToMessage = async (req:Request, res:Response) => {
   } catch (err) {
     return res.status(500).json({ success: false });
   }
+};
+
+export const editMessage = async (req:Request,res:Response)=>{
+  try{
+    const { messageId }=req.params; const { text }=req.body; const userId=req.user?.userId;
+    if(!text || !text.trim()) return res.status(400).json({success:false,msg:"Text required"});
+    const message=await MessageModal.findById(messageId); if(!message) return res.status(404).json({success:false,msg:"Not found"});
+    if(message.senderId.toString()!==userId) return res.status(403).json({success:false,msg:"Only sender can edit"});
+    if(message.isDeleted) return res.status(400).json({success:false,msg:"Cannot edit deleted message"});
+    const fifteen=15*60*1000; if(Date.now()-new Date((message as any).createdAt).getTime() > fifteen) return res.status(400).json({success:false,msg:"Edit window expired (15m)"});
+    message.editHistory.push({originalText: message.text||"", editedAt:new Date()} as any); message.text=text; message.isEdited=true; message.editedAt=new Date(); await message.save();
+    const io=getIO(); const payload={messageId: message._id, newText:text, isEdited:true, editedAt:message.editedAt};
+    const s=onlineUsers.get(message.senderId.toString()); const r=onlineUsers.get(message.receiverId.toString());
+    if(s) io.to(s).emit("message-edited", payload); if(r) io.to(r).emit("message-edited", payload);
+    return res.json({success:true, message});
+  }catch(e){ return res.status(500).json({success:false,msg:"error"});}
+};
+
+export const getEditHistory = async (req:Request,res:Response)=>{
+  try{ const m=await MessageModal.findById(req.params.messageId); if(!m) return res.status(404).json({success:false,msg:"Not found"}); return res.json({success:true, history:m.editHistory, isEdited:m.isEdited}); }catch(e){ return res.status(500).json({success:false,msg:"error"});}
 };

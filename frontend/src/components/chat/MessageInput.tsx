@@ -12,7 +12,12 @@ export default function MessageInput({
   onLocalSend,
   replyTo,
   clearReply,
+  onGroupSend,
 }: any) {
+  const isGroup = !!onGroupSend;
+  const [showStickers,setShowStickers]=useState(false);
+  const [packs,setPacks]=useState<any[]>([]);
+  useEffect(()=>{ if(showStickers) import("../../apis/sticker.api").then(m=> m.getStickerPacks().then(r=> setPacks(r.data.packs||[])).catch(()=>{})); },[showStickers]);
 
   const [text, setText] = useState("");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -207,7 +212,8 @@ export default function MessageInput({
     if (replyTo?._id) form.append("replyTo", replyTo._id);
 
     try {
-      await sendMessageApi(chatId, form);
+      if(isGroup) await onGroupSend(form);
+      else await sendMessageApi(chatId, form);
       socket.emit("stop-typing", { to: chatId });
       clearReply?.();
     } catch {
@@ -227,7 +233,7 @@ export default function MessageInput({
       onPointerUp={stopRecording}
     >
 
-      <div className="bg-orange-100/70 backdrop-blur-md rounded-2xl px-2 sm:px-3 py-1.5 sm:py-2 dark:bg-white/20">
+      <div className="bg-white/5 backdrop-blur-xl rounded-2xl px-2 sm:px-3 py-1.5 sm:py-2 border border-white/10 dark:bg-white/5">
 
         {recording && !lockedRecording && (
           <div className="text-xs text-[#2b1f16] mb-1 flex justify-between dark:text-white">
@@ -316,6 +322,7 @@ export default function MessageInput({
           >
             <Smile size={20}/>
           </button>
+          <button type="button" onClick={e=>{e.stopPropagation(); setShowStickers(!showStickers);}} className="hidden md:flex text-[#2b1f16]/70 dark:text-white/80">🎨</button>
 
           <input
             value={text}
@@ -334,14 +341,14 @@ export default function MessageInput({
                 send();
               }
             }}
-            className="flex-1 bg-transparent text-[#2b1f16] placeholder-[#2b1f16]/40 outline-none dark:text-white dark:placeholder-white/50"
+            className="flex-1 bg-transparent text-white placeholder:text-white/40 outline-none dark:text-white"
             placeholder="Type a message..."
           />
 
           <button
             onClick={() => send()}
             disabled={!text.trim() && !pendingFile}
-            className="w-9 h-9 rounded-full flex items-center justify-center bg-gradient-to-br from-orange-500 to-amber-500 text-white disabled:opacity-40"
+            className="w-9 h-9 rounded-full flex items-center justify-center bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 shadow-lg shadow-indigo-600/30 transition"
           >
             <Send size={16}/>
           </button>
@@ -357,6 +364,16 @@ export default function MessageInput({
                   setText((prev) => prev + emojiData.emoji)
                 }
               />
+            </div>
+          )}
+          {showStickers && (
+            <div className="absolute bottom-12 right-10 z-50 bg-white dark:bg-zinc-800 rounded-xl p-2 shadow-xl max-w-[280px] max-h-[300px] overflow-auto" onClick={e=>e.stopPropagation()}>
+              {packs.length===0? <p className="text-xs">No packs</p>: packs.map((p:any)=>(<div key={p._id}><p className="text-xs font-semibold">{p.name}</p><div className="flex flex-wrap gap-1">{p.stickers.map((s:any)=>(<button key={s.id} onClick={async()=>{
+                // send sticker as image url text placeholder
+                const fd=new FormData(); fd.append("text", s.url); fd.append("clientId", crypto.randomUUID());
+                try{ if(isGroup) await onGroupSend(fd); else await sendMessageApi(chatId, fd); }catch{}
+                setShowStickers(false);
+              }}><img src={s.thumbnail} className="w-10 h-10" alt="st" /></button>))}</div></div>))}
             </div>
           )}
 

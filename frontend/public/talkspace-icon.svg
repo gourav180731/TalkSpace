@@ -1,12 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#FF7A59"/>
-      <stop offset="1" stop-color="#F59E0B"/>
+      <stop offset="0" stop-color="#FFC545"/>
+      <stop offset="1" stop-color="#FF9F1C"/>
     </linearGradient>
   </defs>
-  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
-  <path d="M156 196c0-44 36-80 80-80h40c44 0 80 36 80 80v40c0 44-36 80-80 80h-8v36a10 10 0 0 1-17 7l-34-34h-21c-44 0-80-36-80-80v-49z"
-        fill="#FFF7ED"/>
-  <text x="256" y="322" text-anchor="middle" font-size="240" font-weight="800" font-family="Georgia, 'Times New Roman', serif" fill="#0F766E">T</text>
+  <rect width="512" height="512" rx="118" fill="url(#bg)" transform="rotate(-4 256 256)"/>
+  <path d="M130 150 h252 a42 42 0 0 1 42 42 v136 a42 42 0 0 1 -42 42 h-72 l-26 42 a14 14 0 0 1 -25 -10 l4 -32 h-133 a42 42 0 0 1 -42 -42 v-136 a42 42 0 0 1 42 -42 z" fill="#FFF6E0"/>
+  <rect x="176" y="168" width="160" height="46" rx="15" fill="#2B1F16"/>
+  <rect x="234" y="196" width="44" height="158" rx="18" fill="#2B1F16"/>
 </svg>

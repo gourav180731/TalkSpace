@@ -45,6 +45,15 @@ export function initSocket(io: Server) {
         io.to(socketId).emit("typing", { from: userId });
       }
     });
+    socket.on("stop-typing", ({ to }) => {
+      const socketId = onlineUsers.get(to);
+      if (socketId) io.to(socketId).emit("stop-typing", { from: userId });
+    });
+    socket.on("group-typing", ({ groupId }) => {
+      socket.to(groupId).emit("group-typing", { from: userId, groupId });
+    });
+    socket.on("join-group", ({ groupId }) => { socket.join(groupId); });
+    socket.on("leave-group", ({ groupId }) => { socket.leave(groupId); });
 
     socket.on("call-user", ({ to, offer, user, type }) => {
       if (!to || !offer) return;

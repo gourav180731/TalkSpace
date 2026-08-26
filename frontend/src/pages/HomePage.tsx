@@ -53,15 +53,15 @@ function ChatMock() {
   return (
     <div className="relative w-full max-w-[320px] sm:max-w-[360px] mx-auto" style={{ animation: "float 5s ease-in-out infinite" }}>
       {/* Warm glow behind */}
-      <div className="absolute -inset-8 bg-orange-500/15 blur-[60px] rounded-full pointer-events-none" />
+      <div className="absolute -inset-8 bg-[#ffc545]/15 blur-[60px] rounded-full pointer-events-none" />
 
       <div className="relative rounded-2xl bg-[#1d1712] border border-white/10 shadow-[0_32px_80px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.05)] overflow-hidden">
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10 bg-white/[0.03]">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center text-xs font-bold text-white">R</div>
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#ffc545] to-[#ff9f1c] flex items-center justify-center text-xs font-bold text-[#2b1f16]">R</div>
           <div>
             <p className="text-white text-sm font-semibold leading-none">Riya</p>
-            <p className="text-teal-300 text-[10px] mt-0.5">● online</p>
+            <p className="text-[#ffd96b] text-[10px] mt-0.5">● online</p>
           </div>
           <div className="ml-auto flex gap-3">
             <Phone size={14} className="text-white/40" />
@@ -77,8 +77,8 @@ function ChatMock() {
               className={`flex ${m.me ? "justify-end" : "justify-start"}`}
               style={{ animation: "msgIn 0.3s ease forwards" }}
             >
-              <div className={`max-w-[78%] px-3 py-2 rounded-2xl text-xs leading-relaxed shadow-md ${m.me ? "bg-orange-500 text-white rounded-br-sm shadow-orange-500/25" : "bg-teal-500/15 text-white/90 rounded-bl-sm border border-teal-400/10"}`}>
-                {m.me && <span className="mr-1 inline-block text-[8px] align-middle text-white/60">✔✔</span>}
+              <div className={`max-w-[78%] px-3 py-2 rounded-2xl text-xs leading-relaxed shadow-md ${m.me ? "bg-[#ffc545] text-[#2b1f16] rounded-br-sm shadow-[#ffc545]/30" : "bg-[#ffc545]/15 text-white/90 rounded-bl-sm border border-[#ffc545]/20"}`}>
+                {m.me && <span className="mr-1 inline-block text-[8px] align-middle text-[#2b1f16]/60">✔✔</span>}
                 {m.text}
               </div>
             </div>
@@ -87,13 +87,13 @@ function ChatMock() {
           {/* Voice message preview */}
           {shown >= 3 && (
             <div className="flex justify-start" style={{ animation: "msgIn 0.3s ease forwards" }}>
-              <div className="flex items-center gap-2 px-3 py-2 rounded-2xl rounded-bl-sm bg-teal-500/15 border border-teal-400/10 w-[170px]">
-                <div className="w-6 h-6 rounded-full bg-teal-500/30 flex items-center justify-center shrink-0">
-                  <div className="w-0 h-0 border-y-[4px] border-y-transparent border-l-[7px] border-l-teal-200 ml-0.5" />
+              <div className="flex items-center gap-2 px-3 py-2 rounded-2xl rounded-bl-sm bg-[#ffc545]/15 border border-[#ffc545]/20 w-[170px]">
+                <div className="w-6 h-6 rounded-full bg-[#ffc545]/30 flex items-center justify-center shrink-0">
+                  <div className="w-0 h-0 border-y-[4px] border-y-transparent border-l-[7px] border-l-[#ffd96b] ml-0.5" />
                 </div>
                 <div className="flex items-center gap-[2px] flex-1 h-5">
                   {[0.3,0.7,0.5,1,0.4,0.8,0.6,0.9,0.3,0.7,0.5,0.4].map((h, i) => (
-                    <div key={i} className="flex-1 rounded-full bg-teal-300/50" style={{ height: `${h * 100}%` }} />
+                    <div key={i} className="flex-1 rounded-full bg-[#ffc545]/50" style={{ height: `${h * 100}%` }} />
                   ))}
                 </div>
                 <span className="text-[9px] text-white/40">0:08</span>
@@ -107,16 +107,16 @@ function ChatMock() {
           <div className="flex-1 h-8 rounded-full bg-white/10 px-3 flex items-center">
             <span className="text-white/20 text-xs">Message…</span>
           </div>
-          <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/30">
-            <Mic size={13} className="text-white" />
+          <div className="w-8 h-8 rounded-full bg-[#ffc545] flex items-center justify-center shadow-lg shadow-[#ffc545]/40">
+            <Mic size={13} className="text-[#2b1f16]" />
           </div>
         </div>
       </div>
 
       {/* Floating call badge */}
-      <div className="absolute -top-4 -right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-teal-500/90 backdrop-blur-sm shadow-lg shadow-teal-500/30 border border-teal-400/30">
-        <Video size={11} className="text-white" />
-        <span className="text-white text-[10px] font-semibold">Live call</span>
+      <div className="absolute -top-4 -right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#ffc545] shadow-lg shadow-[#ffc545]/30 border border-[#ffe9a8]/50">
+        <Video size={11} className="text-[#2b1f16]" />
+        <span className="text-[#2b1f16] text-[10px] font-bold">Live call</span>
       </div>
     </div>
   );
@@ -151,7 +151,7 @@ export default function HomePage() {
       style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}
     >
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
         @keyframes msgIn {
           from { opacity: 0; transform: translateY(8px) scale(0.97); }
@@ -183,7 +183,7 @@ export default function HomePage() {
         }
         .float { animation: float 5s ease-in-out infinite; }
         .shimmer-text {
-          background: linear-gradient(90deg, #ff8a4c, #ffd28a, #ff8a4c);
+          background: linear-gradient(90deg, #ffd24a, #ffe9a8, #ff9f1c);
           background-size: 200% auto;
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
@@ -203,9 +203,9 @@ export default function HomePage() {
           transition: border-color 0.3s, transform 0.3s, box-shadow 0.3s;
         }
         .feature-card:hover {
-          border-color: rgba(249,115,22,0.45);
+          border-color: rgba(255,197,69,0.5);
           transform: translateY(-4px);
-          box-shadow: 0 20px 60px rgba(249,115,22,0.12);
+          box-shadow: 0 20px 60px rgba(255,166,0,0.14);
         }
         .nav-link {
           position: relative;
@@ -216,7 +216,7 @@ export default function HomePage() {
           position: absolute;
           bottom: -2px; left: 0;
           width: 0; height: 1px;
-          background: #ff8a4c;
+          background: #ffc545;
           transition: width 0.3s;
         }
         .nav-link:hover::after { width: 100%; }
@@ -242,13 +242,8 @@ export default function HomePage() {
             className="flex items-center gap-2 cursor-pointer"
             onClick={() => scrollTo("hero")}
           >
-            <img src="/talkspace-icon.svg" alt="TalkSpace" className="w-8 h-8 rounded-lg" />
-            <span
-              className="text-lg sm:text-xl font-bold tracking-wide"
-              style={{ fontFamily: "'Fraunces', Georgia, serif" }}
-            >
-              TalkSpace
-            </span>
+            <img src="/talkspace-icon.svg" alt="TalkSpace" className="w-8 h-8 rounded-xl" />
+            <span className="ts-wordmark text-2xl sm:text-3xl">TalkSpace</span>
           </div>
 
           {/* DESKTOP NAV */}
@@ -303,8 +298,8 @@ export default function HomePage() {
           <div ref={hero.ref} className={`reveal ${hero.visible ? "in" : ""}`}>
             {/* Badge */}
             <div className={`reveal ${hero.visible ? "in" : ""} flex mb-6`}>
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-orange-500/30 bg-orange-500/10 text-orange-300 text-sm">
-                <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#ffc545]/40 bg-[#ffc545]/10 text-[#ffd96b] text-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#ffc545] animate-pulse" />
                 Now with HD video & audio calls
               </div>
             </div>
@@ -328,7 +323,7 @@ export default function HomePage() {
             <div className={`reveal reveal-delay-3 ${hero.visible ? "in" : ""} flex flex-col sm:flex-row gap-4`}>
               <button
                 onClick={() => navigate("/register")}
-                className="group flex items-center gap-2 px-6 py-3 rounded-md bg-gradient-to-r from-orange-500 to-amber-500 font-semibold hover:from-orange-400 hover:to-amber-400 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-orange-500/30 transition justify-center"
+                className="group flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#ffc545] to-[#ff9f1c] font-bold text-[#2b1f16] hover:from-[#ffd45e] hover:to-[#ffb62b] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[#ffc545]/40 transition justify-center"
               >
                 Get Started
                 <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
@@ -362,7 +357,7 @@ export default function HomePage() {
             { val: 0,    suffix: "", label: "bots in your feed (except Echo)" },
           ].map(({ val, suffix, label }, i) => (
             <div key={i} className={`reveal reveal-delay-${i+1} ${stats.visible ? "in" : ""}`}>
-              <p className="text-3xl sm:text-4xl font-bold mb-1 text-[#fdf3e3]" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>
+              <p className="text-3xl sm:text-4xl font-bold mb-1 text-[#fdf3e3]" style={{ fontFamily: "'Baloo 2', 'Plus Jakarta Sans', system-ui, sans-serif" }}>
                 {stats.visible ? <Counter to={val} suffix={suffix} /> : `0${suffix}`}
               </p>
               <p className="text-white/40 text-xs sm:text-sm">{label}</p>
@@ -375,7 +370,7 @@ export default function HomePage() {
       <section id="features" style={{ zIndex: 1, position: "relative" }} className="py-20 sm:py-28 px-4">
         <div className="max-w-4xl mx-auto">
           <div ref={features.ref} className={`reveal ${features.visible ? "in" : ""} text-center mb-14`}>
-            <p className="text-orange-400 text-sm font-medium tracking-widest uppercase mb-3">Everything you need</p>
+            <p className="text-[#ffd96b] text-sm font-medium tracking-widest uppercase mb-3">Everything you need</p>
             <h2 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: "clamp(2rem, 4vw, 3rem)" }} className="text-white">
               Built for real conversations
             </h2>
@@ -391,9 +386,9 @@ export default function HomePage() {
               { icon: <Bot size={20} />, title: "Meet Echo", desc: "A built-in AI friend for late-night thoughts, quick answers, or just venting.", delay: 6, color: "amber" },
             ].map(({ icon, title, desc, delay, color }) => {
               const colors: any = {
-                coral: "bg-orange-500/10 text-orange-400 group-hover:bg-orange-500/20",
-                teal:  "bg-teal-500/10 text-teal-300 group-hover:bg-teal-500/20",
-                amber: "bg-amber-500/10 text-amber-300 group-hover:bg-amber-500/20",
+                coral: "bg-[#ffc545]/15 text-[#ffd96b] group-hover:bg-[#ffc545]/30",
+                teal:  "bg-[#fff6e0]/10 text-[#ffe9a8] group-hover:bg-[#fff6e0]/20",
+                amber: "bg-[#ff9f1c]/15 text-[#ffb62b] group-hover:bg-[#ff9f1c]/30",
               };
               return (
                 <div
@@ -415,13 +410,13 @@ export default function HomePage() {
       {/* ── CALL HIGHLIGHT ── */}
       <section style={{ zIndex: 1, position: "relative" }} className="py-16 sm:py-20 px-4">
         <div className="max-w-4xl mx-auto">
-          <div className="relative rounded-3xl overflow-hidden border border-white/[0.08] bg-gradient-to-br from-orange-900/30 via-[#171310] to-teal-900/20 p-8 sm:p-12">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-orange-600/10 blur-3xl rounded-full pointer-events-none" />
+          <div className="relative rounded-3xl overflow-hidden border border-white/[0.08] bg-gradient-to-br from-[#3a2b12]/40 via-[#171310] to-[#123330]/30 p-8 sm:p-12">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-[#ffc545]/10 blur-3xl rounded-full pointer-events-none" />
 
             <div className="grid sm:grid-cols-2 gap-10 items-center">
               <div>
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-300 text-xs font-medium mb-5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#ffc545]/10 border border-[#ffc545]/25 text-[#ffd96b] text-xs font-medium mb-5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#ffc545] animate-pulse" />
                   HD Calls — live now
                 </div>
                 <h2 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: "clamp(1.8rem, 3.5vw, 2.5rem)" }} className="text-white mb-4 leading-tight">
@@ -445,7 +440,7 @@ export default function HomePage() {
                     {[1,2,3].map(i => (
                       <div
                         key={i}
-                        className="absolute rounded-full border border-orange-500/20"
+                        className="absolute rounded-full border border-[#ffc545]/25"
                         style={{
                           width: 48 + i * 36, height: 48 + i * 36,
                           animation: `pulse-ring 2s ease-out ${i * 0.5}s infinite`,
@@ -453,16 +448,16 @@ export default function HomePage() {
                       />
                     ))}
                   </div>
-                  <div className="relative z-10 w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-2xl shadow-orange-500/40 border-4 border-white/10">
-                    <Video size={28} className="text-white" />
+                  <div className="relative z-10 w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-[#ffc545] to-[#ff9f1c] flex items-center justify-center shadow-2xl shadow-[#ffc545]/40 border-4 border-white/10">
+                    <Video size={28} className="text-[#2b1f16]" />
                   </div>
                   <p className="text-center text-white/60 text-xs mt-6">Calling Riya…</p>
                   <div className="flex justify-center gap-4 mt-4">
                     <div className="w-10 h-10 rounded-full bg-red-500/90 flex items-center justify-center shadow-lg shadow-red-500/30">
                       <Phone size={16} className="text-white rotate-[135deg]" />
                     </div>
-                    <div className="w-10 h-10 rounded-full bg-teal-500/90 flex items-center justify-center shadow-lg shadow-teal-500/30">
-                      <Phone size={16} className="text-white" />
+                    <div className="w-10 h-10 rounded-full bg-[#ffc545] flex items-center justify-center shadow-lg shadow-[#ffc545]/30">
+                      <Phone size={16} className="text-[#2b1f16]" />
                     </div>
                   </div>
                 </div>
@@ -476,7 +471,7 @@ export default function HomePage() {
       <section id="about" style={{ zIndex: 1, position: "relative" }} className="py-20 sm:py-28 px-4 border-t border-white/10">
         <div className="max-w-3xl mx-auto text-center">
           <div ref={steps.ref} className={`reveal ${steps.visible ? "in" : ""}`}>
-            <p className="text-orange-400 text-sm font-medium tracking-widest uppercase mb-3">Simple process</p>
+            <p className="text-[#ffd96b] text-sm font-medium tracking-widest uppercase mb-3">Simple process</p>
             <h2 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: "clamp(2rem, 4vw, 3rem)" }} className="text-white mb-14">
               Up in 30 seconds
             </h2>
@@ -484,7 +479,7 @@ export default function HomePage() {
 
           <div className="grid sm:grid-cols-3 gap-8 relative">
             {/* Connector line */}
-            <div className="hidden sm:block absolute top-8 left-[22%] right-[22%] h-px bg-gradient-to-r from-transparent via-orange-500/30 to-transparent" />
+            <div className="hidden sm:block absolute top-8 left-[22%] right-[22%] h-px bg-gradient-to-r from-transparent via-[#ffc545]/40 to-transparent" />
 
             {[
               { n: "01", title: "Create account", desc: "Sign up in seconds. No credit card, no junk mail." },
@@ -492,8 +487,8 @@ export default function HomePage() {
               { n: "03", title: "Talk freely", desc: "Text, voice note, audio call, or video — your choice." },
             ].map(({ n, title, desc }, i) => (
               <div key={n} className={`reveal reveal-delay-${i+1} ${steps.visible ? "in" : ""} flex flex-col items-center`}>
-                <div className="w-16 h-16 rounded-2xl bg-orange-600/15 border border-orange-500/20 flex items-center justify-center mb-4">
-                  <span style={{ fontFamily: "'Fraunces', Georgia, serif" }} className="text-orange-400 text-xl font-bold">{n}</span>
+                <div className="w-16 h-16 rounded-2xl bg-[#ffc545]/12 border border-[#ffc545]/25 flex items-center justify-center mb-4">
+                  <span style={{ fontFamily: "'Baloo 2', 'Plus Jakarta Sans', system-ui, sans-serif" }} className="text-[#ffc545] text-xl font-extrabold">{n}</span>
                 </div>
                 <h3 className="font-semibold text-white mb-2">{title}</h3>
                 <p className="text-white/45 text-sm leading-relaxed">{desc}</p>
@@ -507,8 +502,8 @@ export default function HomePage() {
       <section style={{ zIndex: 1, position: "relative" }} className="py-20 sm:py-28 px-4">
         <div ref={cta.ref} className="max-w-2xl mx-auto text-center">
           <div className={`reveal ${cta.visible ? "in" : ""} relative rounded-3xl border border-white/[0.08] bg-gradient-to-b from-orange-900/20 to-transparent p-12 sm:p-16 overflow-hidden`}>
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(249,115,22,0.15),transparent_70%)] pointer-events-none" />
-            <Zap size={28} className="mx-auto mb-5 text-orange-400" />
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(255,197,69,0.16),transparent_70%)] pointer-events-none" />
+            <Zap size={28} className="mx-auto mb-5 text-[#ffce3f]" />
             <h2 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: "clamp(2rem, 4vw, 3rem)" }} className="text-white mb-4 leading-tight">
               Ready to connect?
             </h2>
@@ -517,7 +512,7 @@ export default function HomePage() {
             </p>
             <button
               onClick={() => navigate("/register")}
-              className="group inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 font-semibold hover:from-orange-400 hover:to-amber-400 transition-all hover:shadow-2xl hover:shadow-orange-500/40 hover:-translate-y-0.5"
+              className="group inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-[#ffc545] to-[#ff9f1c] font-bold text-[#2b1f16] hover:from-[#ffd45e] hover:to-[#ffb62b] transition-all hover:shadow-2xl hover:shadow-[#ffc545]/40 hover:-translate-y-0.5"
             >
               Create free account
               <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
@@ -542,8 +537,8 @@ export default function HomePage() {
               <Mail size={14} /><span>Contact</span>
             </a>
             <div className="flex items-center gap-1.5">
-              <Shield size={12} className="text-teal-400/60" />
-              <span className="text-teal-400/60">Private by design</span>
+              <Shield size={12} className="text-[#ffd96b]/70" />
+              <span className="text-[#ffd96b]/70">Private by design</span>
             </div>
           </div>
         </div>

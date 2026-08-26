@@ -38,3 +38,7 @@ export const deleteMessageForMeApi = (id: string) =>
 export const messageReactionApi = (id: string, emoji: string) =>
   axiosInstance.post(`/message/${id}/react`, { emoji });
 
+export const editMessageApi = (id:string, text:string)=> axiosInstance.patch(`/message/${id}/edit`, {text});
+export const getEditHistoryApi = (id:string)=> axiosInstance.get(`/message/${id}/history`);
+export const markReadApi2 = (id:string)=> axiosInstance.post(`/message/chat/read/${id}`);
+

@@ -9,7 +9,13 @@ export interface INotification {
     | "FRIEND_REQUEST_ACCEPTED"
     | "FRIEND_REQUEST_REJECTED"
     | "FRIEND_REQUEST_CANCELLED"
-    | "UNFRIENDED";
+    | "UNFRIENDED"
+    | "GROUP_INVITE"
+    | "GROUP_MEMBER_ADDED"
+    | "GROUP_MEMBER_REMOVED"
+    | "GROUP_ADMIN_PROMOTED"
+    | "GROUP_MESSAGE_PINNED"
+    | "NEW_STATUS_UPDATE";
   read: boolean;
   createdAt?: Date;
   updatedAt?: Date;
@@ -41,6 +47,12 @@ const notificationSchema = new Schema<INotification>(
         "FRIEND_REQUEST_REJECTED",
         "FRIEND_REQUEST_CANCELLED",
         "UNFRIENDED",
+        "GROUP_INVITE",
+        "GROUP_MEMBER_ADDED",
+        "GROUP_MEMBER_REMOVED",
+        "GROUP_ADMIN_PROMOTED",
+        "GROUP_MESSAGE_PINNED",
+        "NEW_STATUS_UPDATE",
       ],
       required: true,
     },

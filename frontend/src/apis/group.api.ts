@@ -1,0 +1,16 @@
+import { axiosInstance } from "./axios";
+export const createGroup = (data: FormData) => axiosInstance.post("/groups/create", data, { headers:{ "Content-Type":"multipart/form-data"}});
+export const getMyGroups = () => axiosInstance.get("/groups");
+export const getGroupDetails = (id:string)=> axiosInstance.get(`/groups/${id}`);
+export const updateGroup = (id:string, data:FormData)=> axiosInstance.patch(`/groups/${id}`, data, {headers:{"Content-Type":"multipart/form-data"}});
+export const leaveGroup = (id:string)=> axiosInstance.delete(`/groups/${id}/leave`);
+export const addMember = (id:string, memberId:string)=> axiosInstance.post(`/groups/${id}/members`, {memberId});
+export const removeMember = (id:string, memberId:string)=> axiosInstance.delete(`/groups/${id}/members/${memberId}`);
+export const promoteToAdmin = (id:string, memberId:string)=> axiosInstance.patch(`/groups/${id}/admins/${memberId}/promote`);
+export const demoteAdmin = (id:string, memberId:string)=> axiosInstance.patch(`/groups/${id}/admins/${memberId}/demote`);
+export const getGroupMessages = (id:string, page=1)=> axiosInstance.get(`/groups/${id}/messages?page=${page}`);
+export const sendGroupMessage = (id:string, data:FormData)=> axiosInstance.post(`/groups/${id}/messages`, data, {headers:{"Content-Type":"multipart/form-data"}});
+export const deleteGroupMessage = (gid:string, mid:string)=> axiosInstance.delete(`/groups/${gid}/messages/${mid}`);
+export const pinMessage = (gid:string, mid:string)=> axiosInstance.post(`/groups/${gid}/messages/${mid}/pin`);
+export const unpinMessage = (gid:string, mid:string)=> axiosInstance.delete(`/groups/${gid}/messages/${mid}/unpin`);
+export const getPinnedMessages = (gid:string)=> axiosInstance.get(`/groups/${gid}/pinned`);

@@ -16,6 +16,7 @@ async function startServer() {
   try {
     await mongoDb();
     console.log("MongoDB is connected");
+    try { const { seedStickers } = await import("./controllers/stickers/sticker.controller"); await seedStickers(); console.log("Stickers seeded"); } catch(e){ console.log("Sticker seed skip", e); }
 
     initEmailTransporter();
     

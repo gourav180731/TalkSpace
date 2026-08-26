@@ -1,0 +1,12 @@
+import { axiosInstance } from "./axios";
+export const pinChat = (chatId:string, chatType="direct")=> axiosInstance.post("/chat-management/pin", {chatId, chatType});
+export const unpinChat = (chatId:string)=> axiosInstance.delete(`/chat-management/pin/${chatId}`);
+export const archiveChat = (chatId:string, chatType="direct")=> axiosInstance.post("/chat-management/archive", {chatId, chatType});
+export const unarchiveChat = (chatId:string)=> axiosInstance.delete(`/chat-management/archive/${chatId}`);
+export const getArchivedChats = ()=> axiosInstance.get("/chat-management/archived");
+export const muteChat = (chatId:string, duration:string, chatType="direct")=> axiosInstance.post("/chat-management/mute", {chatId, duration, chatType});
+export const unmuteChat = (chatId:string)=> axiosInstance.delete(`/chat-management/mute/${chatId}`);
+export const toggleFavourite = (chatId:string, chatType="direct")=> axiosInstance.post("/chat-management/favourite", {chatId, chatType});
+export const toggleLock = (chatId:string, chatType="direct")=> axiosInstance.post("/chat-management/lock", {chatId, chatType});
+export const setDisappearing = (chatId:string, duration:string, chatType="direct")=> axiosInstance.post("/chat-management/disappearing", {chatId, duration, chatType});
+export const reportUser = (chatId:string, reason="spam")=> axiosInstance.post("/chat-management/report", {chatId, reason});
