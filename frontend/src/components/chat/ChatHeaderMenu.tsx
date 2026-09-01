@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
-import { Info, Search, CheckSquare, BellOff, Clock, Lock, Heart, List, Download, X, Link2, Calendar, Users, Flag, Ban, Trash2, ChevronRight } from "lucide-react";
+import { Info, Search, CheckSquare, BellOff, Clock, Lock, Heart, List, Download, X, Link2, Calendar, Users, Flag, Ban, Trash2, ChevronRight, Image as ImageIcon, Palette } from "lucide-react";
 import { muteChat, unmuteChat } from "../../apis/chatManagement.api";
 import { axiosInstance } from "../../apis/axios";
+import { setChatWallpaper } from "../../apis/settings.api";
 
-export default function ChatHeaderMenu({ chat, onSearch, onSelectMode, onCloseChat, onContactInfo }: any) {
+export default function ChatHeaderMenu({ chat, onSearch, onSelectMode, onCloseChat, onContactInfo, onWallpaperChange }: any) {
   const [open, setOpen] = useState(false);
   const [showMuteSub, setShowMuteSub] = useState(false);
   const [showListSub, setShowListSub] = useState(false);
+  const [showWallpaperSub, setShowWallpaperSub] = useState(false);
   const chatId = chat._id;
   const isGroup = !!chat.isGroup;
 
@@ -49,6 +51,17 @@ export default function ChatHeaderMenu({ chat, onSearch, onSelectMode, onCloseCh
   const handleSchedule = async()=>{ const time=prompt("Schedule time (e.g., 2026-09-01 10:00)"); if(time) alert(`Call scheduled for ${time} — reminder will be sent`); setOpen(false); };
   const handleNewGroupCall = async()=>{ alert("Starting new group call..."); setOpen(false); };
   const handleAddToList = async(list:string)=>{ await axiosInstance.post("/chat-management/add-to-list", { chatId, listName: list }); alert(`Added to ${list}`); setOpen(false); };
+  const handleWallpaperPreset = async(value:string, label:string)=>{
+    const fd=new FormData(); fd.append("wallpaper", JSON.stringify({type:"preset", value}));
+    try{ await setChatWallpaper(chatId, fd); onWallpaperChange?.(value); alert(`Wallpaper: ${label}`); }catch(e:any){ alert(e.response?.data?.msg||"Failed"); }
+    setOpen(false); setShowWallpaperSub(false);
+  };
+  const handleWallpaperGallery = async(e:React.ChangeEvent<HTMLInputElement>)=>{
+    const file=e.target.files?.[0]; if(!file) return;
+    const fd=new FormData(); fd.append("wallpaper", file);
+    try{ const res=await setChatWallpaper(chatId, fd); const url=res.data.settings?.chatCustomizations?.find((c:any)=> c.chatId===chatId)?.wallpaper?.value || URL.createObjectURL(file); onWallpaperChange?.(url); alert("Wallpaper from gallery added"); }catch(err:any){ alert(err.response?.data?.msg||"Upload failed"); }
+    setOpen(false); setShowWallpaperSub(false);
+  };
 
   return (
     <div className="relative" onClick={e=>e.stopPropagation()}>
@@ -76,6 +89,29 @@ export default function ChatHeaderMenu({ chat, onSearch, onSelectMode, onCloseCh
           </div>
 
           <button onClick={handleDisappearing} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-white text-sm"><Clock size={18} className="opacity-70"/> Disappearing messages</button>
+          <div>
+            <button onClick={()=> setShowWallpaperSub(!showWallpaperSub)} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-white text-sm justify-between">
+              <span className="flex items-center gap-3"><ImageIcon size={18} className="opacity-70"/> Wallpaper</span><ChevronRight size={14} className={`opacity-40 transition ${showWallpaperSub? "rotate-90":""}`}/>
+            </button>
+            {showWallpaperSub && (
+              <div className="mx-2 mb-2 p-2 bg-black/20 rounded-xl border border-white/10">
+                <div className="text-[11px] text-white/50 px-2 py-1 flex items-center gap-1"><Palette size={12}/> Themes</div>
+                <div className="grid grid-cols-3 gap-2 p-2">
+                  <button onClick={()=> handleWallpaperPreset("","Default")} className="h-10 rounded-lg bg-[#0b0d12] border border-white/10 flex items-center justify-center text-[10px] text-white/60 hover:border-indigo-500/50">Default</button>
+                  <button onClick={()=> handleWallpaperPreset("#121520","Dark")} className="h-10 rounded-lg bg-[#121520] border border-white/10 flex items-center justify-center text-[10px] text-white/60 hover:border-indigo-500/50">Dark</button>
+                  <button onClick={()=> handleWallpaperPreset("#f8fafc","Light")} className="h-10 rounded-lg bg-[#f8fafc] border border-white/10 flex items-center justify-center text-[10px] text-slate-600 hover:border-indigo-500/50">Light</button>
+                  <button onClick={()=> handleWallpaperPreset("linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)","Ocean")} className="h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 border border-white/10 hover:border-indigo-500/50" title="Ocean" />
+                  <button onClick={()=> handleWallpaperPreset("linear-gradient(135deg, #0f172a 0%, #1e293b 100%)","Navy")} className="h-10 rounded-lg bg-gradient-to-br from-slate-900 to-slate-700 border border-white/10 hover:border-indigo-500/50" title="Navy" />
+                  <button onClick={()=> handleWallpaperPreset("linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)","Pastel")} className="h-10 rounded-lg bg-gradient-to-br from-purple-200 to-blue-200 border border-white/10 hover:border-indigo-500/50" title="Pastel" />
+                </div>
+                <label className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs cursor-pointer">
+                  <ImageIcon size={14}/> Add image from gallery
+                  <input type="file" accept="image/*" hidden onChange={handleWallpaperGallery} />
+                </label>
+                <button onClick={()=> handleWallpaperPreset("", "Clear")} className="w-full mt-1 px-3 py-1 text-xs text-white/50 hover:text-white text-center">Clear wallpaper</button>
+              </div>
+            )}
+          </div>
           <button onClick={handleLock} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-white text-sm"><Lock size={18} className="opacity-70"/> Lock chat</button>
           <button onClick={handleFavourite} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-white text-sm"><Heart size={18} className="opacity-70"/> Add to favourites</button>
 

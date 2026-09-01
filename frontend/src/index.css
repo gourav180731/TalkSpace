@@ -19,12 +19,57 @@ body {
   background: #0b0d12;
   color: #ffffff;
 }
+/* Light mode global */
+html:not(.dark) body {
+  background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 50%, #e0e7ff 100%);
+  color: #0f172a;
+  background-attachment: fixed;
+}
+html:not(.dark) .bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(0,0,0,0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0,0,0,0.07) 1px, transparent 1px);
+}
+html:not(.dark) .bubble-them {
+  background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+  border: 1px solid rgba(199,210,254,0.8);
+  box-shadow: 0 4px 14px rgba(99,102,241,0.08);
+  color: #0f172a;
+}
+html:not(.dark) .bubble-them::after { background: #ffffff; }
+html:not(.dark) .bubble-me {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  box-shadow: 0 4px 14px rgba(37,99,235,0.25);
+  color: #ffffff;
+}
+html:not(.dark) .bubble-me::after { background: #2563eb; }
+/* Semantic light overrides for hardcoded dark surfaces */
+html:not(.dark) .bg-\[\#121520\]\/90 { background: linear-gradient(135deg, rgba(255,255,255,0.94) 0%, rgba(248,250,252,0.90) 100%) !important; }
+html:not(.dark) .bg-\[\#121520\]\/60 { background: linear-gradient(135deg, rgba(255,255,255,0.88), rgba(243,244,246,0.8)) !important; }
+html:not(.dark) .bg-\[\#0b0d12\], html:not(.dark) .bg-\[\#0b0d12\]\/80 { background: linear-gradient(135deg, rgba(255,255,255,0.88), rgba(243,244,246,0.8)) !important; }
+html:not(.dark) .border-white\/10 { border-color: rgba(199,210,254,0.8) !important; }
+html:not(.dark) .text-white { color: #0f172a !important; }
+html:not(.dark) .text-white\/60 { color: #475569 !important; }
+html:not(.dark) .text-white\/50 { color: #64748b !important; }
+html:not(.dark) .text-white\/70 { color: #334155 !important; }
+html:not(.dark) .placeholder\:text-white\/40::placeholder { color: #94a3b8 !important; }
+/* Inputs light */
+html:not(.dark) input.bg-\[\#0b0d12\] { background: #ffffff !important; color: #0f172a !important; border-color: rgba(199,210,254,0.9) !important; }
 
 .ts-wordmark {
   font-family: 'Inter', system-ui, sans-serif;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: #ffffff;
+}
+html:not(.dark) .ts-wordmark {
+  color: #0f172a !important;
+  background: none !important;
+  -webkit-text-fill-color: #0f172a !important;
+  filter: none !important;
+}
+html:not(.dark) .ts-wordmark span, html:not(.dark) .ts-wordmark {
+  color: #0f172a !important;
 }
 
 /* underline animation - indigo */

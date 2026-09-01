@@ -235,10 +235,15 @@ export default function CallWindow() {
       callSocket.callUser &&
       !callSocket.activeCallUserId
     ) {
-      call.startCall(callSocket.callUser._id, callSocket.callUser, callSocket.callType);
+      console.log("📞 Starting call to", callSocket.callUser._id, callSocket.callType);
+      call.startCall(callSocket.callUser._id, callSocket.callUser, callSocket.callType).catch(e=>{
+        console.error("startCall failed", e);
+        callSocket.setCallStatus("idle");
+        callSocket.setCallUser(null);
+      });
       callSocket.startMissedTimer(callSocket.callUser._id, remoteName);
     }
-  }, [callSocket.callStatus, callSocket.callUser]);
+  }, [callSocket.callStatus, callSocket.callUser, callSocket.activeCallUserId]);
 
   useEffect(() => {
     if (callSocket.callStatus === "idle") {

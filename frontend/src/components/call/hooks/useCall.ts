@@ -56,7 +56,14 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
 
     const peer = new RTCPeerConnection({
       iceServers: [
-        { urls: ["stun:stun.l.google.com:19302"] },
+        { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"] },
+        // Fallback TURN - free openrelay for dev (replace with your own in prod)
+        {
+          urls: ["turn:openrelay.metered.ca:80", "turn:openrelay.metered.ca:443", "turn:openrelay.metered.ca:443?transport=tcp"],
+          username: "openrelayproject",
+          credential: "openrelayproject",
+        },
+        // Original metered - keep as secondary (may be expired)
         {
           urls: [
             "turn:global.relay.metered.ca:80",
@@ -68,6 +75,7 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
           credential: "vcVLobIoZOjeg5L9",
         },
       ],
+      iceCandidatePoolSize: 10,
     });
 
     peer.onicecandidate = (e) => {
@@ -166,8 +174,19 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
       callSocket.setCallUser(user);
 
       socket.emit("call-user", { to, offer: peer.localDescription, user, type });
-    } catch (err) {
+      console.log("📤 call-user emitted to", to);
+    } catch (err:any) {
       console.error("❌ getUserMedia error", err);
+      const msg = err?.name === "NotAllowedError" ? "Microphone/Camera permission denied" : err?.name === "NotFoundError" ? "No camera/mic found" : "Failed to start call";
+      // Use global call context to show toast if available
+      try { 
+        const evt = new CustomEvent("call-error", { detail: msg });
+        window.dispatchEvent(evt);
+      } catch {}
+      // Reset call state
+      setActiveCallUserId(null);
+      callSocket.setCallStatus("idle");
+      callSocket.setCallUser(null);
     }
   };
 

@@ -114,16 +114,38 @@ export const CallProvider = ({ children }: any) => {
       setCallStatus("idle");
     };
 
+    const onError = (msg:any) => {
+      const text = typeof msg === "string" ? msg : msg?.message || "Call error";
+      if (text.includes("offline")) {
+        clearMissedTimer(); stopAllAudio();
+        setMissedCallMsg("User is offline");
+        setTimeout(()=> setMissedCallMsg(null), 3000);
+        setCallStatus("idle"); setCallUser(null); setActiveCallUserId(null);
+      } else if (text.includes("already in a call")) {
+        setMissedCallMsg("You are already in a call");
+        setTimeout(()=> setMissedCallMsg(null), 3000);
+      }
+      console.warn("Socket error:", text);
+    };
+    const onEnded = () => {
+      clearMissedTimer(); stopAllAudio();
+      setCallStatus("idle"); setIncomingCall(null); setCallUser(null); setActiveCallUserId(null);
+    };
+
     socket.on("incoming-call",  onIncoming);
     socket.on("call-rejected",  onRejected);
     socket.on("call-missed",    onMissed);
-    socket.on("call-busy",      onBusy);   
+    socket.on("call-busy",      onBusy);
+    socket.on("error",          onError);
+    socket.on("call-ended",     onEnded);
 
     return () => {
       socket.off("incoming-call",  onIncoming);
       socket.off("call-rejected",  onRejected);
       socket.off("call-missed",    onMissed);
       socket.off("call-busy",      onBusy);
+      socket.off("error",          onError);
+      socket.off("call-ended",     onEnded);
     };
   }, []);
 

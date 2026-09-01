@@ -10,3 +10,9 @@ export const toggleFavourite = (chatId:string, chatType="direct")=> axiosInstanc
 export const toggleLock = (chatId:string, chatType="direct")=> axiosInstance.post("/chat-management/lock", {chatId, chatType});
 export const setDisappearing = (chatId:string, duration:string, chatType="direct")=> axiosInstance.post("/chat-management/disappearing", {chatId, duration, chatType});
 export const reportUser = (chatId:string, reason="spam")=> axiosInstance.post("/chat-management/report", {chatId, reason});
+export const addToList = (chatId:string, listName:string)=> axiosInstance.post("/chat-management/add-to-list", {chatId, listName});
+export const getLists = ()=> axiosInstance.get("/chat-management/lists");
+export const toggleStar = (messageId:string, chatId:string)=> axiosInstance.post("/chat-management/star", {messageId, chatId});
+export const getStarred = ()=> axiosInstance.get("/chat-management/starred");
+export const scheduleCall = (chatId:string, scheduledAt:string, chatType="direct")=> axiosInstance.post("/chat-management/schedule-call", {chatId, scheduledAt, chatType});
+export const getScheduledCalls = ()=> axiosInstance.get("/chat-management/scheduled-calls");

@@ -198,6 +198,7 @@ const scrollToMessage = async (messageId: string) => {
   onSelectMode={()=> setSelectMode(true)}
   onCloseChat={()=> onBack?.()}
   onContactInfo={()=> setShowContactInfo(true)}
+  onWallpaperChange={setWallpaper}
 />
     {showContactInfo && (
       <div className="absolute inset-0 z-40 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={()=> setShowContactInfo(false)}>
@@ -226,7 +227,7 @@ const scrollToMessage = async (messageId: string) => {
         </div>
       </div>
     )}
-    {showSearch && <SearchBar chatId={chat._id} onJump={scrollToMessage} />}
+    {showSearch && <SearchBar chatId={chat._id} isGroup={isGroup} onJump={scrollToMessage} />}
     {lockChecked && isLocked && (
       <div className="flex-1 flex flex-col items-center justify-center bg-[#0b0d12]/80 backdrop-blur p-6 text-center gap-4">
         <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center text-2xl">🔒</div>
@@ -242,7 +243,7 @@ const scrollToMessage = async (messageId: string) => {
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        style={wallpaper && wallpaper.startsWith("#") ? { backgroundColor: wallpaper } : wallpaper? { background: wallpaper } : {}}
+        style={wallpaper?.startsWith("http") ? { backgroundImage: `url(${wallpaper})`, backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : wallpaper && wallpaper.startsWith("#") ? { backgroundColor: wallpaper } : wallpaper ? { background: wallpaper } : {}}
         className="
   flex-1 overflow-y-auto px-2 pt-3
   bg-transparent backdrop-blur-xl

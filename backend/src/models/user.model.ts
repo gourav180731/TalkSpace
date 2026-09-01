@@ -39,6 +39,9 @@ export interface IUser extends Document {
   favouriteChats: Array<{ chatId: string; chatType: "direct" | "group"; addedAt: Date }>;
   lockedChats: Array<{ chatId: string; chatType: "direct" | "group"; lockedAt: Date }>;
   disappearingChats: Array<{ chatId: string; chatType: "direct" | "group"; duration: string; enabledAt: Date }>;
+  starredMessages: Array<{ messageId: string; chatId: string; starredAt: Date }>;
+  chatLists: Array<{ name: string; chatIds: string[]; createdAt: Date }>;
+  scheduledCalls: Array<{ callId: string; chatId: string; chatType: string; scheduledAt: Date; status: string; }>;
   recentEmojis: string[];
 }
 
@@ -125,6 +128,15 @@ const userSchema = new mongoose.Schema<IUser>(
     ],
     disappearingChats: [
       { chatId: { type: String, required: true }, chatType: { type: String, enum: ["direct", "group"], required: true }, duration: { type: String, default: "24h" }, enabledAt: { type: Date, default: Date.now } },
+    ],
+    starredMessages: [
+      { messageId: { type: String, required: true }, chatId: { type: String, required: true }, starredAt: { type: Date, default: Date.now } },
+    ],
+    chatLists: [
+      { name: { type: String, required: true }, chatIds: [{ type: String }], createdAt: { type: Date, default: Date.now } },
+    ],
+    scheduledCalls: [
+      { callId: { type: String, required: true }, chatId: { type: String, required: true }, chatType: { type: String, enum: ["direct","group"], default:"direct" }, scheduledAt: { type: Date, required: true }, status: { type: String, enum:["scheduled","cancelled","completed"], default:"scheduled" } },
     ],
     recentEmojis: [{ type: String }],
   },

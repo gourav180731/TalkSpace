@@ -11,9 +11,11 @@ export const GroupProvider:React.FC<{children:React.ReactNode}> = ({children})=>
   useEffect(()=>{
     const onMsg=(d:any)=>{ setGroups(prev=> prev.map(g=> g._id===d.groupId? {...g, lastMessage:d.message}:g)); if(currentGroup?._id===d.groupId) setCurrentGroup((c:any)=> c? {...c}:c); };
     const onAdd=()=> fetchGroups(); const onRemove=(d:any)=>{ setGroups(prev=> prev.filter(g=> g._id!==d.groupId || d.memberId!=="self")); if(currentGroup?._id===d.groupId) fetchGroups(); };
+    const onConnect=()=>{ fetchGroups(); groups.forEach((g:any)=> socket.emit("join-group",{groupId:g._id})); };
     socket.on("group-message", onMsg); socket.on("group-member-added", onAdd); socket.on("group-member-removed", onRemove); socket.on("group-settings-updated", onAdd);
-    return()=>{ socket.off("group-message", onMsg); socket.off("group-member-added", onAdd); socket.off("group-member-removed", onRemove); };
-  },[currentGroup]);
+    socket.on("connect", onConnect);
+    return()=>{ socket.off("group-message", onMsg); socket.off("group-member-added", onAdd); socket.off("group-member-removed", onRemove); socket.off("connect", onConnect); };
+  },[currentGroup, groups]);
   const createGroup=async(d:FormData)=>{ const r=await api.createGroup(d); setGroups(p=> [r.data.group, ...p]); return r.data.group; };
   const selectGroup=(id:string)=>{ const g=groups.find(x=> x._id===id); setCurrentGroup(g||null); };
   const sendGroupMessage=async(gid:string,d:FormData)=>{ await api.sendGroupMessage(gid,d); };

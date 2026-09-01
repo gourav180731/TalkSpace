@@ -70,14 +70,56 @@ export const setDisappearing = async (req:Request,res:Response)=>{
   }catch(e){ console.error(e); return res.status(500).json({success:false,msg:"error"});}
 };
 export const addToList = async (req:Request,res:Response)=>{
-  try{ const { chatId, listName }=req.body; // reuse favouriteChats with listName as chatType variant
-    const user=await UserMOdel.findById(req.user?.userId); // store list as archived with custom? simple add to favourite with list prefix
-    // For now treat as favourite with listName
-    return res.json({success:true, msg:`Added to ${listName}`});
+  try{
+    const { chatId, listName }=req.body; if(!chatId||!listName) return res.status(400).json({success:false,msg:"chatId and listName required"});
+    const user=await UserMOdel.findById(req.user?.userId); if(!user) return res.status(404).json({success:false,msg:"User not found"});
+    let list=user.chatLists.find(l=> l.name===listName);
+    if(!list){ user.chatLists.push({ name:listName, chatIds:[chatId], createdAt:new Date()} as any); }
+    else { if(!list.chatIds.includes(chatId)) list.chatIds.push(chatId); }
+    await user.save();
+    try{ const io=getIO(); io.to(req.user!.userId).emit("chat-list-updated",{ listName, chatId }); }catch{}
+    return res.json({success:true, lists:user.chatLists});
   }catch(e){ return res.status(500).json({success:false,msg:"error"});}
 };
+export const getLists = async (req:Request,res:Response)=>{
+  try{ const user=await UserMOdel.findById(req.user?.userId); return res.json({success:true, lists:user?.chatLists||[]}); }catch(e){ return res.status(500).json({success:false,msg:"error"});}
+};
+export const removeFromList = async (req:Request,res:Response)=>{
+  try{ const { listName, chatId }=req.body; const user=await UserMOdel.findById(req.user?.userId); if(!user) return res.status(404).json({success:false,msg:"User not found"}); const list=user.chatLists.find(l=> l.name===listName); if(list){ list.chatIds=list.chatIds.filter((id:string)=> id!==chatId); await user.save(); } return res.json({success:true, lists:user.chatLists}); }catch(e){ return res.status(500).json({success:false,msg:"error"});}
+};
+export const toggleStarMessage = async (req:Request,res:Response)=>{
+  try{ const { messageId, chatId }=req.body; if(!messageId||!chatId) return res.status(400).json({success:false,msg:"messageId and chatId required"});
+    const user=await UserMOdel.findById(req.user?.userId); const exists=user!.starredMessages.some(s=> s.messageId===messageId);
+    if(exists) user!.starredMessages=user!.starredMessages.filter(s=> s.messageId!==messageId);
+    else user!.starredMessages.push({ messageId, chatId, starredAt:new Date()} as any);
+    await user!.save();
+    try{ const io=getIO(); io.to(req.user!.userId).emit("starred-updated",{ messageId, starred:!exists }); }catch{}
+    return res.json({success:true, starred:!exists, starredMessages:user!.starredMessages});
+  }catch(e){ return res.status(500).json({success:false,msg:"error"});}
+};
+export const getStarredMessages = async (req:Request,res:Response)=>{
+  try{ const user=await UserMOdel.findById(req.user?.userId); return res.json({success:true, starred:user?.starredMessages||[]}); }catch(e){ return res.status(500).json({success:false,msg:"error"});}
+};
+export const scheduleCall = async (req:Request,res:Response)=>{
+  try{
+    const { chatId, chatType, scheduledAt }=req.body; if(!chatId||!scheduledAt) return res.status(400).json({success:false,msg:"chatId and scheduledAt required"});
+    const user=await UserMOdel.findById(req.user?.userId); const callId=new Date().getTime().toString();
+    user!.scheduledCalls.push({ callId, chatId, chatType:chatType||"direct", scheduledAt:new Date(scheduledAt), status:"scheduled"} as any);
+    await user!.save();
+    try{ const io=getIO(); io.to(req.user!.userId).emit("call-scheduled",{ callId, chatId, scheduledAt }); const otherSock=(await import("../../socket")).onlineUsers.get(chatId); if(otherSock) io.to(otherSock).emit("call-scheduled",{ callId, chatId:req.user!.userId, scheduledAt }); }catch{}
+    return res.json({success:true, scheduled:user!.scheduledCalls});
+  }catch(e){ return res.status(500).json({success:false,msg:"error"});}
+};
+export const getScheduledCalls = async (req:Request,res:Response)=>{
+  try{ const user=await UserMOdel.findById(req.user?.userId); return res.json({success:true, scheduled:user?.scheduledCalls||[]}); }catch(e){ return res.status(500).json({success:false,msg:"error"});}
+};
 export const reportUser = async (req:Request,res:Response)=>{
-  try{ const { chatId, reason }=req.body; const Notification=(await import("../../models/notification.modal")).default; await Notification.create({ user: chatId, actor: req.user?.userId, type: "FRIEND_REQUEST_CANCELLED" as any, read:false }); return res.json({success:true, msg:"Reported"}); }catch(e){ return res.status(500).json({success:false,msg:"error"});}
+  try{
+    const { chatId, reason, messageId }=req.body; if(!chatId) return res.status(400).json({success:false,msg:"chatId required"});
+    const ReportModel=(await import("../../models/report.model")).default;
+    const report=await ReportModel.create({ reporter:req.user?.userId, reportedUser:chatId, reason:reason||"spam", messageId: messageId||undefined, chatId, status:"pending"});
+    return res.json({success:true, report});
+  }catch(e){ console.error(e); return res.status(500).json({success:false,msg:"error"});}
 };
 export const getChatSettings = async (req:Request,res:Response)=>{
   try{ const chatId=req.params.chatId; const user=await UserMOdel.findById(req.user?.userId);
