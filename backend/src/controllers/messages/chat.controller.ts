@@ -103,8 +103,13 @@ export const getChatList = async (req: Request, res: Response) => {
       },
     ]);
 
+    // 6️⃣ Filter deleted chats (user-specific hide)
+    const meDoc:any = await UserMOdel.findById(myId).select("deletedChats");
+    const deletedSet=new Set((meDoc?.deletedChats||[]).map((d:any)=> d.chatId));
+    const filteredChats=chats.filter((c:any)=> !deletedSet.has(c._id.toString()));
+
     // 6️⃣ Fetch user details
-    const userIds = chats.map((c) => c._id);
+    const userIds = filteredChats.map((c) => c._id);
 
     const users = await UserMOdel.find({
       _id: { $in: userIds },
@@ -113,7 +118,7 @@ export const getChatList = async (req: Request, res: Response) => {
     const userMap = new Map(users.map((u) => [u._id.toString(), u]));
 
     // 7️⃣ Build final response
-    const chatList = chats.map((chat) => {
+    const chatList = filteredChats.map((chat) => {
       const user = userMap.get(chat._id.toString());
 
       return {
@@ -296,6 +301,12 @@ const allowedMimesTypes = [
   ...(replyTo && { replyTo: new Types.ObjectId(replyTo) }),
 }).save();
 
+    // Restore chat if it was deleted/archived for either participant (new message should reappear)
+    try{
+      await UserMOdel.updateOne({_id: sender._id}, { $pull: { deletedChats: { chatId: receiver._id.toString() }, archivedChats: { chatId: receiver._id.toString() } } } as any);
+      await UserMOdel.updateOne({_id: receiver._id}, { $pull: { deletedChats: { chatId: sender._id.toString() }, archivedChats: { chatId: sender._id.toString() } } } as any);
+    }catch{}
+
 const populatedMessage = await MessageModal.findOne({
   _id: message._id,
 })
@@ -351,8 +362,16 @@ const populatedMessage = await MessageModal.findOne({
     },
   });
 
+  // Check if chat is muted for receiver (persisted)
+  let isMutedForReceiver=false;
+  try{
+    const freshReceiver:any = await UserMOdel.findById(receiver._id).select("mutedChats");
+    const entry=freshReceiver?.mutedChats?.find((c:any)=> c.chatId===senderIdStr);
+    if(entry) isMutedForReceiver = !entry.muteUntil || new Date(entry.muteUntil) > new Date();
+  }catch{}
   io.to(receiverSocketId).emit("unread-update", {
     from: senderIdStr,
+    muted: isMutedForReceiver,
   });
     }
     if (receiver.isBot) {

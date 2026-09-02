@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { socket } from "../../apis/socket";
 import { useGlobalCall } from "../../context/CallContext";
+import { useAuth } from "../../context/AuthContext";
 import { useCall } from "./hooks/useCall";
 import { PhoneOff, PhoneMissed } from "lucide-react";
 
@@ -209,6 +210,7 @@ const STYLES = `
 export default function CallWindow() {
   const callSocket = useGlobalCall();
   const { remoteVideoRef, localVideoRef, remoteAudioRef } = useGlobalCall();
+  const { user: currentUser } = useAuth();
   const call = useCall(remoteVideoRef, localVideoRef, remoteAudioRef);
 
   const [seconds,        setSeconds]        = useState(0);
@@ -235,15 +237,16 @@ export default function CallWindow() {
       callSocket.callUser &&
       !callSocket.activeCallUserId
     ) {
-      console.log("📞 Starting call to", callSocket.callUser._id, callSocket.callType);
-      call.startCall(callSocket.callUser._id, callSocket.callUser, callSocket.callType).catch(e=>{
+      const caller = currentUser || callSocket.callUser;
+      console.log("📞 Starting call to", callSocket.callUser._id, "as", caller?.username, callSocket.callType);
+      call.startCall(callSocket.callUser._id, caller, callSocket.callType).catch(e=>{
         console.error("startCall failed", e);
         callSocket.setCallStatus("idle");
         callSocket.setCallUser(null);
       });
       callSocket.startMissedTimer(callSocket.callUser._id, remoteName);
     }
-  }, [callSocket.callStatus, callSocket.callUser, callSocket.activeCallUserId]);
+  }, [callSocket.callStatus, callSocket.callUser, callSocket.activeCallUserId, currentUser]);
 
   useEffect(() => {
     if (callSocket.callStatus === "idle") {

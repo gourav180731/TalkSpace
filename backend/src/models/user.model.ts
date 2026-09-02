@@ -40,8 +40,10 @@ export interface IUser extends Document {
   lockedChats: Array<{ chatId: string; chatType: "direct" | "group"; lockedAt: Date }>;
   disappearingChats: Array<{ chatId: string; chatType: "direct" | "group"; duration: string; enabledAt: Date }>;
   starredMessages: Array<{ messageId: string; chatId: string; starredAt: Date }>;
-  chatLists: Array<{ name: string; chatIds: string[]; createdAt: Date }>;
   scheduledCalls: Array<{ callId: string; chatId: string; chatType: string; scheduledAt: Date; status: string; }>;
+  deletedChats: Array<{ chatId: string; chatType: "direct" | "group"; deletedAt: Date }>;
+  chatLockHash?: string;
+  chatLockEnabled: boolean;
   recentEmojis: string[];
 }
 
@@ -132,12 +134,14 @@ const userSchema = new mongoose.Schema<IUser>(
     starredMessages: [
       { messageId: { type: String, required: true }, chatId: { type: String, required: true }, starredAt: { type: Date, default: Date.now } },
     ],
-    chatLists: [
-      { name: { type: String, required: true }, chatIds: [{ type: String }], createdAt: { type: Date, default: Date.now } },
-    ],
     scheduledCalls: [
       { callId: { type: String, required: true }, chatId: { type: String, required: true }, chatType: { type: String, enum: ["direct","group"], default:"direct" }, scheduledAt: { type: Date, required: true }, status: { type: String, enum:["scheduled","cancelled","completed"], default:"scheduled" } },
     ],
+    deletedChats: [
+      { chatId: { type: String, required: true }, chatType: { type: String, enum: ["direct","group"], required: true }, deletedAt: { type: Date, default: Date.now } },
+    ],
+    chatLockHash: { type: String, select: false },
+    chatLockEnabled: { type: Boolean, default: false },
     recentEmojis: [{ type: String }],
   },
   { timestamps: true }

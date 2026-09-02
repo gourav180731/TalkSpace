@@ -36,9 +36,11 @@ export const getFriendsStatuses = async (req:Request,res:Response)=>{
     const userId=req.user?.userId;
     const user=await UserMOdel.findById(userId);
     const friends=user?.friends||[];
-    const statuses=await StatusUpdateModel.find({ userId: { $in: friends }, expiryTime: { $gt: new Date() } }).sort({ createdAt:-1 }).lean();
+    const statuses=await StatusUpdateModel.find({ userId: { $in: friends }, expiryTime: { $gt: new Date() } }).sort({ createdAt:-1 }).populate("userId","username avatar firstName lastName").lean();
     // filter by privacy
     const filtered=statuses.filter((s:any)=>{
+      const ownerId=s.userId?._id ? s.userId._id.toString() : s.userId.toString();
+      // Need to check owner's privacy, but s currently contains privacyMode etc. Use s's own privacy fields
       if(s.privacyMode==="friends_except") return !s.excludedFriends.some((id:any)=> id.toString()===userId);
       if(s.privacyMode==="only_share_with") return s.includedFriends.some((id:any)=> id.toString()===userId);
       return true;
@@ -52,13 +54,49 @@ export const getMyStatuses = async (req:Request,res:Response)=>{
 };
 
 export const getStatusById = async (req:Request,res:Response)=>{
-  try{ const s=await StatusUpdateModel.findById(req.params.statusId); if(!s) return res.status(404).json({success:false,msg:"Not found"}); if(s.expiryTime < new Date()) return res.status(410).json({success:false,msg:"Expired"}); return res.json({success:true, status:s}); }catch(e){ return res.status(500).json({success:false,msg:"error"});}
+  try{
+    const s=await StatusUpdateModel.findById(req.params.statusId).populate("userId","username avatar firstName lastName");
+    if(!s) return res.status(404).json({success:false,msg:"Not found"});
+    if(s.expiryTime < new Date()) return res.status(410).json({success:false,msg:"Expired"});
+    // Privacy check: if requester is not owner, verify visibility
+    const requesterId=req.user?.userId;
+    if(s.userId.toString()!==requesterId){
+      const ownerId=(s.userId as any)._id ? (s.userId as any)._id.toString() : s.userId.toString();
+      const user=await UserMOdel.findById(ownerId);
+      const isFriend=user?.friends.some((f:any)=> f.toString()===requesterId);
+      if(s.privacyMode==="friends_except" && s.excludedFriends.some((id:any)=> id.toString()===requesterId)){
+        return res.status(403).json({success:false,msg:"Not authorized"});
+      }
+      if(s.privacyMode==="only_share_with" && !s.includedFriends.some((id:any)=> id.toString()===requesterId)){
+        return res.status(403).json({success:false,msg:"Not authorized"});
+      }
+      // if not friend and privacy is friends only, block (all_friends requires friend)
+      if(!isFriend){
+        return res.status(403).json({success:false,msg:"Not authorized - not friends"});
+      }
+    }
+    return res.json({success:true, status:s});
+  }catch(e){ return res.status(500).json({success:false,msg:"error"});}
 };
 
 export const markStatusViewed = async (req:Request,res:Response)=>{
   try{
     const s=await StatusUpdateModel.findById(req.params.statusId); if(!s) return res.status(404).json({success:false,msg:"Not found"});
-    const userId=req.user?.userId; if(s.viewers.some((v:any)=> v.userId.toString()===userId)) return res.json({success:true, status:s});
+    if(s.expiryTime < new Date()) return res.status(410).json({success:false,msg:"Expired"});
+    const userId=req.user?.userId;
+    // Privacy check before viewing
+    if(s.userId.toString()!==userId){
+      const owner=await UserMOdel.findById(s.userId);
+      const isFriend=owner?.friends.some((f:any)=> f.toString()===userId);
+      if(s.privacyMode==="friends_except" && s.excludedFriends.some((id:any)=> id.toString()===userId)){
+        return res.status(403).json({success:false,msg:"Not authorized"});
+      }
+      if(s.privacyMode==="only_share_with" && !s.includedFriends.some((id:any)=> id.toString()===userId)){
+        return res.status(403).json({success:false,msg:"Not authorized"});
+      }
+      if(!isFriend) return res.status(403).json({success:false,msg:"Not friends"});
+    }
+    if(s.viewers.some((v:any)=> v.userId.toString()===userId)) return res.json({success:true, status:s});
     s.viewers.push({userId, viewedAt:new Date()} as any); await s.save();
     try{ const io=getIO(); io.to(s.userId.toString()).emit("status-viewed",{statusId:s._id, viewerId:userId}); }catch{}
     return res.json({success:true, status:s});

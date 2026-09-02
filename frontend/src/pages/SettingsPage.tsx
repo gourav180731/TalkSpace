@@ -3,6 +3,7 @@ import { getPrivacySettings, updatePrivacySettings, getBlockedUsers, unblockUser
 import { getUserSettings, updateUserSettings, clearCache } from "../apis/settings.api";
 import { syncContacts } from "../apis/contact.api";
 import { getStickerPacks } from "../apis/sticker.api";
+import CallHistory from "../components/call/CallHistory";
 
 const SettingsPage = () => {
   const [tab, setTab] = useState("privacy");
@@ -48,8 +49,8 @@ const SettingsPage = () => {
       <h1 className="text-3xl font-bold mb-2 hike-gradient-text">Settings</h1>
       <p className="text-sm opacity-60 mb-4">Make TalkSpace yours — Hike-inspired colorful controls</p>
       <div className="flex gap-2 mb-6 flex-wrap">
-        {["privacy","notifications","chats","appearance","contacts","about"].map(t=>(
-          <button key={t} onClick={()=> setTab(t)} className={`px-4 py-2 rounded-full text-sm capitalize shadow-sm border transition ${tab===t?"bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] text-white border-transparent":"bg-white border-black/5 dark:bg-white/10 dark:border-white/10 backdrop-blur"}`}>{t}</button>
+        {["privacy","notifications","chats","appearance","contacts","calls","about","founder"].map(t=>(
+          <button key={t} onClick={()=> setTab(t)} className={`px-4 py-2 rounded-full text-sm capitalize shadow-sm border transition ${tab===t?"bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] text-white border-transparent":"bg-white border-black/5 dark:bg-white/10 dark:border-white/10 backdrop-blur"}`}>{t==="founder"?"Founder Information":t}</button>
         ))}
       </div>
 
@@ -107,9 +108,62 @@ const SettingsPage = () => {
         </div>
       )}
 
+      {tab==="calls" && (
+        <div className="max-w-2xl bg-white/70 dark:bg-white/5 backdrop-blur rounded-2xl p-6">
+          <h3 className="font-semibold mb-4">Call History</h3>
+          <CallHistory />
+        </div>
+      )}
+
       {tab==="about" && (
         <div className="space-y-2 max-w-xl bg-white dark:bg-white/10 backdrop-blur rounded-2xl p-6 shadow-sm border border-black/5">
           <h3 className="font-semibold">About TalkSpace — Hike Edition</h3><p className="text-sm">Version 1.0.0 • Colorful • Clean • Hike-inspired</p><p className="text-sm opacity-70">Privacy Policy: Your data is encrypted. Terms apply. Help at support@talkspace.app</p>
+        </div>
+      )}
+
+      {tab==="founder" && (
+        <div className="max-w-xl bg-white/80 dark:bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-xl">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-600 to-blue-500 flex items-center justify-center text-white font-bold">Fi</div>
+            <div>
+              <h3 className="text-white font-semibold text-lg">Founder Information</h3>
+              <p className="text-white/60 text-xs">Leadership & vision behind TalkSpace</p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-white/5 border border-white/10 p-6 flex flex-col items-center text-center gap-4">
+            <div className="w-20 h-20 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
+              <span className="text-white/40 text-2xl">—</span>
+            </div>
+            <div>
+              <h4 className="text-white font-medium">Information Coming Soon</h4>
+              <p className="text-white/60 text-sm mt-1 max-w-sm">
+                This section is reserved for founder details. Content will be added here when available, without any changes to navigation or layout.
+              </p>
+            </div>
+
+            <div className="w-full grid grid-cols-1 gap-3 mt-2 text-left">
+              <div className="rounded-xl bg-[#0b0d12] border border-white/10 p-4 opacity-50">
+                <p className="text-white/40 text-xs uppercase tracking-wide">Name</p>
+                <p className="text-white/60 text-sm mt-1">—</p>
+              </div>
+              <div className="rounded-xl bg-[#0b0d12] border border-white/10 p-4 opacity-50">
+                <p className="text-white/40 text-xs uppercase tracking-wide">Role</p>
+                <p className="text-white/60 text-sm mt-1">—</p>
+              </div>
+              <div className="rounded-xl bg-[#0b0d12] border border-white/10 p-4 opacity-50">
+                <p className="text-white/40 text-xs uppercase tracking-wide">Message</p>
+                <p className="text-white/60 text-sm mt-1 leading-relaxed">—</p>
+              </div>
+            </div>
+
+            <p className="text-white/30 text-[11px] mt-2">This page is intentionally blank and ready for future content.</p>
+          </div>
+
+          <div className="mt-4 flex items-center justify-center gap-2 text-white/30 text-xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            TalkSpace • Founder section ready
+          </div>
         </div>
       )}
     </div>

@@ -7,6 +7,7 @@ import { useEffect, useState} from "react";
 import { useChatMessages } from "./hooks/useChatMessages";
 import { useChatSocket } from "./hooks/useChatSocket";
 import SearchBar from "../search/SearchBar";
+import CallHistoryList from "../call/CallHistoryList";
 import { getGroupMessages, sendGroupMessage } from "../../apis/group.api";
 import { getUserSettings } from "../../apis/settings.api";
 import { socket } from "../../apis/socket";
@@ -42,6 +43,7 @@ export default function ChatWindow({ chat, onBack }: any) {
   const [showContactInfo,setShowContactInfo]=useState(false);
   const [isLocked,setIsLocked]=useState(false);
   const [lockChecked,setLockChecked]=useState(false);
+  const [showCallHistory,setShowCallHistory]=useState(false);
 
 const callSocket = useGlobalCall();
   
@@ -227,15 +229,51 @@ const scrollToMessage = async (messageId: string) => {
         </div>
       </div>
     )}
+    <div className="flex gap-2 px-2 py-1 bg-white/5 border-b border-white/10">
+      <button onClick={()=> setShowSearch(!showSearch)} className={`px-3 py-1 text-xs rounded-full border ${showSearch ? "bg-indigo-600 border-indigo-500 text-white" : "bg-white/10 border-white/10 text-white/70"}`}>🔍 Search</button>
+      <button onClick={()=> setShowCallHistory(!showCallHistory)} className={`px-3 py-1 text-xs rounded-full border ${showCallHistory ? "bg-indigo-600 border-indigo-500 text-white" : "bg-white/10 border-white/10 text-white/70"}`}>📞 Calls</button>
+      <button onClick={async()=>{
+        const { setChatWallpaper } = await import("../../apis/settings.api");
+        const presets=["#1a1d2e","#121520","linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)","linear-gradient(135deg, #0b0d12 0%, #121520 100%)"];
+        const p=presets[Math.floor(Math.random()*presets.length)];
+        const fd=new FormData(); fd.append("wallpaper", JSON.stringify({type:"preset", value:p}));
+        try{ await setChatWallpaper(chat._id, fd); setWallpaper(p); }catch{}
+      }} className="px-3 py-1 text-xs rounded-full bg-white/5 border border-white/10 text-white/60">Wallpaper</button>
+    </div>
+    {showCallHistory && !isGroup && (
+      <div className="p-2 bg-[#0b0d12]/50 border-b border-white/10 max-h-64 overflow-auto">
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-white/80 text-xs font-semibold">Call history with {chat.username}</h4>
+          <button onClick={()=> setShowCallHistory(false)} className="text-white/40 hover:text-white text-xs">✕</button>
+        </div>
+        <CallHistoryList userId={chat._id} />
+      </div>
+    )}
     {showSearch && <SearchBar chatId={chat._id} isGroup={isGroup} onJump={scrollToMessage} />}
     {lockChecked && isLocked && (
       <div className="flex-1 flex flex-col items-center justify-center bg-[#0b0d12]/80 backdrop-blur p-6 text-center gap-4">
         <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center text-2xl">🔒</div>
         <p className="text-white font-medium">This chat is locked</p>
+        <p className="text-white/60 text-xs">Enter your Chat Lock PIN to view</p>
         <button onClick={async()=>{
-          const pin=prompt("Enter PIN to unlock (demo: 1234)");
-          if(pin==="1234"||pin===""){ setIsLocked(false); } else alert("Wrong PIN");
-        }} className="px-6 py-2 rounded-full bg-indigo-600 text-white">Unlock</button>
+          const pin=prompt("Enter Chat Lock PIN:");
+          if(!pin) return;
+          try{
+            const { verifyChatLock } = await import("../../apis/chatManagement.api");
+            await verifyChatLock(pin);
+            setIsLocked(false);
+          }catch(e:any){ alert(e.response?.data?.msg||"Invalid PIN"); }
+        }} className="px-6 py-2 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white">Unlock</button>
+        <button onClick={async()=>{
+          const pin=prompt("Enter PIN to permanently remove Chat Lock (this will unlock all chats):");
+          if(!pin) return;
+          try{
+            const { removeChatLock } = await import("../../apis/chatManagement.api");
+            await removeChatLock(pin);
+            setIsLocked(false);
+            alert("Chat Lock removed");
+          }catch(e:any){ alert(e.response?.data?.msg||"Failed"); }
+        }} className="text-xs text-white/50 underline">Remove lock</button>
       </div>
     )}
 
@@ -283,17 +321,24 @@ const scrollToMessage = async (messageId: string) => {
                 onReply={(msg: any) => setReplyTo(msg)}
                 onJump={scrollToMessage}
                 onDeleteForMe={(id: string) => {
-                  setMessages((prev: any[]) =>
-                    prev.map((msg) =>
-                      msg._id === id
-                        ? {
-                            ...msg,
-                            deletedFor: [...(msg.deletedFor || []), user._id],
-                          }
-                        : msg
-                    )
-                  );
+                  if(isGroup){
+                    setGroupMessages((prev: any[]) => prev.map((mm:any)=> mm._id===id ? {...mm, deletedFor:[...(mm.deletedFor||[]), user._id]} : mm));
+                  } else {
+                    setMessages((prev: any[]) =>
+                      prev.map((msg) =>
+                        msg._id === id
+                          ? {
+                              ...msg,
+                              deletedFor: [...(msg.deletedFor || []), user._id],
+                            }
+                          : msg
+                      )
+                    );
+                  }
                 }}
+                isGroup={isGroup}
+                groupId={isGroup ? chat._id : undefined}
+                isGroupAdmin={isGroup ? (chat.group?.admins?.some((id:any)=> id.toString()===user?._id) || chat.admins?.some((id:any)=> id.toString()===user?._id)) : false}
               />
               </div>
             </div>

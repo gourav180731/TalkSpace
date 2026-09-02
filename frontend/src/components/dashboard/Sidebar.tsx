@@ -34,9 +34,12 @@ export default function Sidebar({
     loadChats,
     archivedIds,
     setArchivedIds,
+    deletedIds,
+    setDeletedIds,
+    mutedIds,
     selectMode,
     setSelectMode,
-  } = useSidebar();
+  } = useSidebar() as any;
   const [showGroupModal,setShowGroupModal]=useState(false);
   const [showGroups,setShowGroups]=useState(false);
   const [selectedChatIds,setSelectedChatIds]=useState<Set<string>>(new Set());
@@ -148,6 +151,17 @@ export default function Sidebar({
                 setSelectedChatIds(new Set());
                 setSelectMode(false);
               }} className="px-2 py-1 rounded-full bg-white/20">Archive</button>
+              <button onClick={async()=>{
+                if(!confirm(`Delete ${selectedChatIds.size} chat(s)? They will reappear when you get a new message.`)) return;
+                for(const id of selectedChatIds){
+                  try{ const { deleteChat } = await import("../../apis/chatManagement.api"); await deleteChat(id); }catch{}
+                }
+                const ns=new Set(deletedIds);
+                selectedChatIds.forEach(id=> ns.add(id));
+                setDeletedIds(ns);
+                setSelectedChatIds(new Set());
+                setSelectMode(false);
+              }} className="px-2 py-1 rounded-full bg-rose-500/90 hover:bg-rose-600">Delete Chat</button>
               <button onClick={()=>{ setSelectMode(false); setSelectedChatIds(new Set()); }} className="px-2 py-1 rounded-full bg-white/10">Cancel</button>
             </div>
           </div>
@@ -182,7 +196,7 @@ export default function Sidebar({
         {mode === "chats" &&
           !query &&
           chats
-            .filter((chat:any) => chat?.user && !archivedIds.has(chat.user._id))
+            .filter((chat:any) => chat?.user && !archivedIds.has(chat.user._id) && !deletedIds.has(chat.user._id))
             .map((chat:any) => {
               const key = chat._id || chat.user._id;
 
@@ -194,6 +208,8 @@ export default function Sidebar({
                   unreadCount={chat.unreadCount || 0}
                   lastMessage={chat.lastMessage?.text}
                   lastMessageAt={chat.lastMessageAt}
+                  isMuted={mutedIds.has(chat.user._id)}
+                  isPinned={false}
                   onArchived={(id:string)=> { const ns=new Set(archivedIds); ns.add(id); setArchivedIds(ns); }}
                   onClick={() => {
                     if(selectMode){

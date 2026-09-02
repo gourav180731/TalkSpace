@@ -11,6 +11,8 @@ export const demoteAdmin = (id:string, memberId:string)=> axiosInstance.patch(`/
 export const getGroupMessages = (id:string, page=1)=> axiosInstance.get(`/groups/${id}/messages?page=${page}`);
 export const sendGroupMessage = (id:string, data:FormData)=> axiosInstance.post(`/groups/${id}/messages`, data, {headers:{"Content-Type":"multipart/form-data"}});
 export const deleteGroupMessage = (gid:string, mid:string)=> axiosInstance.delete(`/groups/${gid}/messages/${mid}`);
+export const deleteGroupMessageForMe = (gid:string, mid:string)=> axiosInstance.delete(`/groups/${gid}/messages/${mid}/me`);
+export const editGroupMessage = (gid:string, mid:string, text:string)=> axiosInstance.patch(`/groups/${gid}/messages/${mid}/edit`, {text});
 export const pinMessage = (gid:string, mid:string)=> axiosInstance.post(`/groups/${gid}/messages/${mid}/pin`);
 export const unpinMessage = (gid:string, mid:string)=> axiosInstance.delete(`/groups/${gid}/messages/${mid}/unpin`);
 export const getPinnedMessages = (gid:string)=> axiosInstance.get(`/groups/${gid}/pinned`);

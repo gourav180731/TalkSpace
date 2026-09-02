@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import {
   MessageCircle,
-  Search,
+  Settings,
   Plus,
   Bell,
   User,
@@ -9,7 +9,7 @@ import {
 import { useNotifications } from "../../context/NotificationContext";
 import { useGlobalCall } from "../../context/CallContext";
 
-type NavKey = "home" | "search" | "notifications" | "profile";
+type NavKey = "home" | "settings" | "notifications" | "profile";
 
 type Props = {
   active: NavKey;
@@ -25,10 +25,10 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { key: "home",          icon: MessageCircle, label: "Chats",   route: "/dashboard"     },
-  { key: "search",        icon: Search,        label: "Search",  route: "/search"        },
-  { key: "notifications", icon: Bell,          label: "Alerts",  route: "/notifications" },
-  { key: "profile",       icon: User,          label: "Profile", route: "/profile"       },
+  { key: "home",          icon: MessageCircle, label: "Chats",    route: "/dashboard"  },
+  { key: "settings",      icon: Settings,      label: "Settings", route: "/settings"   },
+  { key: "notifications", icon: Bell,          label: "Alerts",   route: "/notifications" },
+  { key: "profile",       icon: User,          label: "Profile",  route: "/profile"    },
 ];
 
 export default function MobileBottomNav({

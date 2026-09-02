@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Info, Search, CheckSquare, BellOff, Clock, Lock, Heart, List, Download, X, Link2, Calendar, Users, Flag, Ban, Trash2, ChevronRight, Image as ImageIcon, Palette } from "lucide-react";
+import { Info, Search, CheckSquare, BellOff, Clock, Lock, Heart, Download, X, Link2, Calendar, Users, Flag, Ban, Trash2, ChevronRight, Image as ImageIcon, Palette } from "lucide-react";
 import { muteChat, unmuteChat } from "../../apis/chatManagement.api";
 import { axiosInstance } from "../../apis/axios";
 import { setChatWallpaper } from "../../apis/settings.api";
@@ -7,7 +7,6 @@ import { setChatWallpaper } from "../../apis/settings.api";
 export default function ChatHeaderMenu({ chat, onSearch, onSelectMode, onCloseChat, onContactInfo, onWallpaperChange }: any) {
   const [open, setOpen] = useState(false);
   const [showMuteSub, setShowMuteSub] = useState(false);
-  const [showListSub, setShowListSub] = useState(false);
   const [showWallpaperSub, setShowWallpaperSub] = useState(false);
   const chatId = chat._id;
   const isGroup = !!chat.isGroup;
@@ -31,7 +30,36 @@ export default function ChatHeaderMenu({ chat, onSearch, onSelectMode, onCloseCh
     alert(`Disappearing set to ${dur}`);
     setOpen(false);
   };
-  const handleLock = async()=>{ await axiosInstance.post("/chat-management/lock", { chatId, chatType: isGroup?"group":"direct" }); alert("Lock toggled"); setOpen(false); };
+  const handleLock = async()=>{
+    // Check current lock status
+    let isCurrentlyLocked=false;
+    try{ const r=await axiosInstance.get(`/chat-management/settings/${chatId}`); isCurrentlyLocked=!!r.data.isLocked; }catch{}
+    const action = isCurrentlyLocked ? "unlock" : "lock";
+    const pin = prompt(`Enter your Chat Lock PIN to ${action} this chat (min 4 chars):`);
+    if(!pin) return;
+    if(pin.length<4){ alert("PIN must be at least 4 characters"); return; }
+    try{
+      const res=await axiosInstance.post("/chat-management/lock", { chatId, chatType: isGroup?"group":"direct", pin });
+      alert(res.data.locked ? "Chat locked" : "Chat unlocked");
+    }catch(e:any){
+      const msg=e.response?.data?.msg||"";
+      if(msg.includes("PIN required")){
+        const pin2=prompt("Create new Chat Lock PIN (min 4 chars):");
+        if(!pin2) return;
+        if(pin2.length<4){ alert("PIN too short"); return; }
+        const confirm=prompt("Confirm PIN:");
+        if(confirm!==pin2){ alert("PINs do not match"); return; }
+        try{
+          await axiosInstance.post("/chat-management/lock/setup", { pin: pin2 });
+          const res2=await axiosInstance.post("/chat-management/lock", { chatId, chatType: isGroup?"group":"direct", pin: pin2 });
+          alert(res2.data.locked ? "Chat locked with new PIN" : "Done");
+        }catch(err:any){ alert(err.response?.data?.msg||"Failed to set PIN"); }
+      } else {
+        alert(msg||"Failed");
+      }
+    }
+    setOpen(false);
+  };
   const handleFavourite = async()=>{ await axiosInstance.post("/chat-management/favourite", { chatId, chatType: isGroup?"group":"direct" }); alert("Favourites toggled"); setOpen(false); };
   const handleExport = async()=>{
     try{
@@ -50,7 +78,6 @@ export default function ChatHeaderMenu({ chat, onSearch, onSelectMode, onCloseCh
   const handleCallLink = async()=>{ const link = `${window.location.origin}/call/${chatId}-${Date.now()}`; await navigator.clipboard.writeText(link); alert(`Call link copied: ${link}`); setOpen(false); };
   const handleSchedule = async()=>{ const time=prompt("Schedule time (e.g., 2026-09-01 10:00)"); if(time) alert(`Call scheduled for ${time} — reminder will be sent`); setOpen(false); };
   const handleNewGroupCall = async()=>{ alert("Starting new group call..."); setOpen(false); };
-  const handleAddToList = async(list:string)=>{ await axiosInstance.post("/chat-management/add-to-list", { chatId, listName: list }); alert(`Added to ${list}`); setOpen(false); };
   const handleWallpaperPreset = async(value:string, label:string)=>{
     const fd=new FormData(); fd.append("wallpaper", JSON.stringify({type:"preset", value}));
     try{ await setChatWallpaper(chatId, fd); onWallpaperChange?.(value); alert(`Wallpaper: ${label}`); }catch(e:any){ alert(e.response?.data?.msg||"Failed"); }
@@ -114,19 +141,6 @@ export default function ChatHeaderMenu({ chat, onSearch, onSelectMode, onCloseCh
           </div>
           <button onClick={handleLock} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-white text-sm"><Lock size={18} className="opacity-70"/> Lock chat</button>
           <button onClick={handleFavourite} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-white text-sm"><Heart size={18} className="opacity-70"/> Add to favourites</button>
-
-          <div className="relative">
-            <button onMouseEnter={()=> setShowListSub(true)} onMouseLeave={()=> setShowListSub(false)} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-white text-sm justify-between">
-              <span className="flex items-center gap-3"><List size={18} className="opacity-70"/> Add to list</span><ChevronRight size={14} className="opacity-40"/>
-            </button>
-            {showListSub && (
-              <div onMouseEnter={()=> setShowListSub(true)} onMouseLeave={()=> setShowListSub(false)} className="absolute left-[-140px] top-0 w-36 bg-[#111b21] border border-white/15 rounded-xl shadow-xl py-1">
-                <button onClick={()=> handleAddToList("Work")} className="w-full px-3 py-2 hover:bg-white/5 text-white text-xs text-left">Work</button>
-                <button onClick={()=> handleAddToList("Family")} className="w-full px-3 py-2 hover:bg-white/5 text-white text-xs text-left">Family</button>
-                <button onClick={()=> handleAddToList("Friends")} className="w-full px-3 py-2 hover:bg-white/5 text-white text-xs text-left">Friends</button>
-              </div>
-            )}
-          </div>
 
           <button onClick={handleExport} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-white text-sm"><Download size={18} className="opacity-70"/> Export chat</button>
           <button onClick={()=>{ onCloseChat?.(); setOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-white text-sm"><X size={18} className="opacity-70"/> Close chat</button>

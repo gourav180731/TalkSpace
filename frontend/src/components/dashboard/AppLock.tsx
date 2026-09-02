@@ -16,8 +16,9 @@ export default function AppLock(){
         <p className="text-white/60 text-sm mb-4">Enter PIN to unlock TalkSpace</p>
         <input type="password" value={input} onChange={e=> setInput(e.target.value)} placeholder="PIN" className="w-full bg-[#0b0d12] border border-white/10 rounded-xl px-4 py-2 text-white placeholder:text-white/40 mb-3"/>
         <button onClick={()=>{
-          const pin=localStorage.getItem("appLockPin")||"1234";
-          if(input===pin){ localStorage.setItem("appLocked","false"); setLocked(false); }
+          const pin=localStorage.getItem("appLockPin");
+          if(!pin){ alert("No PIN set. Please set via Chats → ⋮ → App lock"); return; }
+          if(input===pin){ localStorage.setItem("appLocked","false"); setLocked(false); setInput(""); }
           else alert("Wrong PIN");
         }} className="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white">Unlock</button>
       </div>

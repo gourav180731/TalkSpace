@@ -47,8 +47,13 @@ export const createGroup = async (req: Request, res: Response) => {
 export const getMyGroups = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
-    const groups = await GroupChatModel.find({ members: userId }).sort({ updatedAt: -1 }).populate("members", "username avatar").lean();
-    // add unread count logic simplified: total messages count
+    let groups = await GroupChatModel.find({ members: userId }).sort({ updatedAt: -1 }).populate("members", "username avatar").lean();
+    // Filter deleted groups for this user
+    try{
+      const user:any = await UserMOdel.findById(userId).select("deletedChats");
+      const deletedSet=new Set((user?.deletedChats||[]).map((d:any)=> d.chatId));
+      groups=groups.filter((g:any)=> !deletedSet.has(g._id.toString()));
+    }catch{}
     return res.json({ success: true, groups });
   } catch (e) { return res.status(500).json({ success: false, msg: "Internal error" }); }
 };
@@ -166,6 +171,19 @@ export const deleteGroupMessage = async (req:Request,res:Response)=>{
   }catch(e){return res.status(500).json({success:false,msg:"error"});}
 };
 
+export const deleteGroupMessageForMe = async (req:Request,res:Response)=>{
+  try{
+    const g=(req as any).group; const messageId=req.params.messageId; const userId=req.user?.userId;
+    const msg=g.messages.id(messageId); if(!msg) return res.status(404).json({success:false,msg:"Message not found"});
+    if(!msg.deletedFor.includes(userId)){
+      msg.deletedFor.push(userId);
+      await g.save();
+    }
+    try{ const io=getIO(); io.to(userId as string).emit("message-deleted",{groupId:g._id, messageId, forMe:true, deletedFor: msg.deletedFor}); }catch{}
+    return res.json({success:true, msg:"Deleted for me"});
+  }catch(e){ return res.status(500).json({success:false,msg:"error"});}
+};
+
 export const editGroupMessage = async (req:Request,res:Response)=>{
   try{
     const g=(req as any).group; const messageId=req.params.messageId; const { text }=req.body; const userId=req.user?.userId;
@@ -173,7 +191,7 @@ export const editGroupMessage = async (req:Request,res:Response)=>{
     if(msg.senderId.toString()!==userId) return res.status(403).json({success:false,msg:"Only sender can edit"});
     const fifteen=15*60*1000; if(Date.now()- new Date(msg.createdAt).getTime() > fifteen) return res.status(400).json({success:false,msg:"Edit window expired"});
     msg.editHistory.push({originalText: msg.text, editedAt: new Date()}); msg.text=text; msg.isEdited=true; msg.editedAt=new Date(); await g.save();
-    try{ const io=getIO(); g.members.forEach((m:any)=> io.to(m.toString()).emit("message-edited",{groupId:g._id, messageId, newText:text})); }catch{}
+    try{ const io=getIO(); g.members.forEach((m:any)=> io.to(String(m)).emit("message-edited",{groupId:g._id, messageId, newText:text})); }catch{}
     return res.json({success:true, message:msg});
   }catch(e){return res.status(500).json({success:false,msg:"error"});}
 };

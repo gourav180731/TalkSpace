@@ -11,6 +11,8 @@ export function useSidebar() {
   const [mode, setMode] = useState<"chats" | "requests" | "starred" | "archived">("chats");
   const [friends, setFriends] = useState<any[]>([]);
   const [archivedIds, setArchivedIds] = useState<Set<string>>(new Set());
+  const [mutedIds, setMutedIds] = useState<Set<string>>(new Set());
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
@@ -35,11 +37,18 @@ export function useSidebar() {
     try {
       const res = await getChatListApi();
       setChats(Array.isArray(res.data?.chats) ? res.data.chats : []);
-      // also load archived ids
+      // also load archived, muted and deleted ids
       try{
-        const { getArchivedChats } = await import("../../apis/chatManagement.api");
-        const ar = await getArchivedChats();
+        const { getArchivedChats, getMutedChats, getDeletedChats } = await import("../../apis/chatManagement.api");
+        const [ar, mu, del] = await Promise.all([
+          getArchivedChats().catch(()=>({data:{archived:[]}})),
+          getMutedChats().catch(()=>({data:{muted:[]}})),
+          getDeletedChats().catch(()=>({data:{deleted:[]}}))
+        ]);
         setArchivedIds(new Set((ar.data.archived||[]).map((a:any)=> a.chatId)));
+        const muted = (mu as any).data?.muted || [];
+        setMutedIds(new Set((Array.isArray(muted)? muted: []).map((a:any)=> a.chatId)));
+        setDeletedIds(new Set(((del as any).data?.deleted||[]).map((a:any)=> a.chatId)));
       }catch{}
     } catch {
       setChats([]);
@@ -127,6 +136,21 @@ export function useSidebar() {
     };
   }, []);
 
+  /* -------- SOCKET: MUTE SYNC -------- */
+  useEffect(()=>{
+    const onMuted=({chatId}:any)=> setMutedIds(prev=> new Set([...prev, chatId]));
+    const onUnmuted=({chatId}:any)=> setMutedIds(prev=>{ const ns=new Set(prev); ns.delete(chatId); return ns; });
+    socket.on("chat-muted", onMuted);
+    socket.on("chat-unmuted", onUnmuted);
+    socket.on("chat-updated", (d:any)=>{
+      if(d.muted!==undefined){
+        if(d.muted) setMutedIds(p=> new Set([...p, d.chatId]));
+        else setMutedIds(p=>{ const ns=new Set(p); ns.delete(d.chatId); return ns; });
+      }
+    });
+    return()=>{ socket.off("chat-muted", onMuted); socket.off("chat-unmuted", onUnmuted); };
+  },[]);
+
   return {
     chats,
     setChats,
@@ -139,6 +163,10 @@ export function useSidebar() {
     loadChats,
     archivedIds,
     setArchivedIds,
+    mutedIds,
+    setMutedIds,
+    deletedIds,
+    setDeletedIds,
     selectMode,
     setSelectMode,
   };

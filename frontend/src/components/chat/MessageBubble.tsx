@@ -7,12 +7,13 @@ import {
   messageReactionApi,
   editMessageApi,
 } from "../../apis/chat.api";
+import { deleteGroupMessage, deleteGroupMessageForMe, editGroupMessage } from "../../apis/group.api";
 import { Paperclip, Check, CheckCheck, Clock } from "lucide-react";
 import FilePreview from "./FilePreview";
 
 const EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🔥"];
 
-function MessageBubble({ msg, onReply, onJump, onDeleteForMe }: any) {
+function MessageBubble({ msg, onReply, onJump, onDeleteForMe, isGroup, groupId, isGroupAdmin }: any) {
   const { user } = useAuth();
   const [showActions, setShowActions] = useState(false);
   const startX = useRef<number | null>(null);
@@ -57,11 +58,36 @@ function MessageBubble({ msg, onReply, onJump, onDeleteForMe }: any) {
             <div className="flex flex-wrap gap-2 mb-2 text-xs">
               <button onClick={e => { e.stopPropagation(); onReply?.(msg); setShowActions(false); }} className="px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-white/90">Reply</button>
               {isMe && !msg.isDeleted && msg._id && (()=>{ const age=Date.now()-new Date(msg.createdAt).getTime(); return age<15*60*1000; })() && (
-                <button onClick={async(e)=>{ e.stopPropagation(); const nv=prompt("Edit message:", msg.text); if(nv && nv!==msg.text){ try{ await editMessageApi(msg._id, nv);}catch{} } setShowActions(false); }} className="px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-white/90">Edit</button>
+                <button onClick={async(e)=>{ e.stopPropagation(); const nv=prompt("Edit message:", msg.text); if(nv && nv!==msg.text){ try{
+                  if(isGroup && groupId){ await editGroupMessage(groupId, msg._id, nv); }
+                  else { await editMessageApi(msg._id, nv); }
+                }catch{} } setShowActions(false); }} className="px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-white/90">Edit</button>
               )}
-              <button disabled={!msg._id} onClick={() => { if (!msg._id) return; deleteMessageForMeApi(msg._id); onDeleteForMe?.(msg._id); setShowActions(false); }} className="px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-white/70">Delete for me</button>
-              {isMe && (
-                <button disabled={!msg._id} onClick={() => { if (!msg._id) return; deleteMessageForEveryoneApi(msg._id); setShowActions(false); }} className="px-3 py-1 rounded-full bg-rose-500/20 hover:bg-rose-500/30 text-rose-300">Delete for everyone</button>
+              <button disabled={!msg._id} onClick={async () => {
+                if (!msg._id) return;
+                try {
+                  if(isGroup && groupId){
+                    try { await deleteGroupMessageForMe(groupId, msg._id); } catch {}
+                    onDeleteForMe?.(msg._id);
+                  } else {
+                    await deleteMessageForMeApi(msg._id);
+                    onDeleteForMe?.(msg._id);
+                  }
+                } catch {}
+                setShowActions(false);
+              }} className="px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-white/70">Delete for me</button>
+              {(isMe || (isGroup && isGroupAdmin)) && !msg.isDeleted && (
+                <button disabled={!msg._id} onClick={async () => {
+                  if (!msg._id) return;
+                  try{
+                    if(isGroup && groupId){
+                      await deleteGroupMessage(groupId, msg._id);
+                    } else {
+                      await deleteMessageForEveryoneApi(msg._id);
+                    }
+                  }catch{}
+                  setShowActions(false);
+                }} className="px-3 py-1 rounded-full bg-rose-500/20 hover:bg-rose-500/30 text-rose-300">Delete for everyone</button>
               )}
             </div>
             <div className="flex gap-1">

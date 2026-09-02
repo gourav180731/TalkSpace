@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { getAllUsersApi } from "../../apis/friend.api";
+import { getMyFriendsApi } from "../../apis/friend.api";
 import { createGroup } from "../../apis/group.api";
 
 export default function CreateGroupModal({open,onClose,onCreated}:any){
   const [friends,setFriends]=useState<any[]>([]); const [selected,setSelected]=useState<string[]>([]); const [name,setName]=useState(""); const [file,setFile]=useState<File|null>(null); const [preview,setPreview]=useState<string>(""); const [search,setSearch]=useState(""); const [loading,setLoading]=useState(false); const [error,setError]=useState("");
-  useEffect(()=>{ if(open){ setError(""); setName(""); setSelected([]); setFile(null); setPreview(""); getAllUsersApi("").then(r=> setFriends(r.data.users||[])).catch(()=>{}); } },[open]);
+  useEffect(()=>{ if(open){ setError(""); setName(""); setSelected([]); setFile(null); setPreview(""); setSearch(""); getMyFriendsApi().then(r=> setFriends(r.data.users||[])).catch(()=>{}); } },[open]);
   useEffect(()=>{ if(file){ const url=URL.createObjectURL(file); setPreview(url); return()=> URL.revokeObjectURL(url); } else setPreview(""); },[file]);
   if(!open) return null;
   const toggle=(id:string)=> setSelected(prev=> prev.includes(id)? prev.filter(x=>x!==id): [...prev,id]);

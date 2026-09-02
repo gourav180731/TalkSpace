@@ -1,13 +1,14 @@
 import { Server, Socket } from "socket.io";
 import jwt from "jsonwebtoken";
 import * as cookie from "cookie";
+import { logCall } from "./controllers/calls/callHistory.controller";
 
 export const onlineUsers = new Map<string, string>();
 
 const userLastMessage = new Map<string, number>();
 const messageTracker = new Map<string, number[]>();
 const mutedUsers = new Map<string, number>();
-const ongoingCalls = new Map<string, string>();
+const ongoingCalls = new Map<string, { partnerId: string; startTime?: Date; callType?: string }>();
 
 export function initSocket(io: Server) {
   io.use((socket, next) => {
@@ -75,8 +76,10 @@ export function initSocket(io: Server) {
         return;
       }
 
-      ongoingCalls.set(userId, to);
-      ongoingCalls.set(to, userId);
+      const startTime=new Date();
+      ongoingCalls.set(userId, { partnerId: to, startTime, callType: type || "audio" });
+      ongoingCalls.set(to, { partnerId: userId, startTime, callType: type || "audio" });
+      try{ logCall({ caller: userId, receiver: to, callType: type || "audio", status: "outgoing", startTime }); }catch{}
 
       io.to(toSocketId).emit("incoming-call", {
         from: userId,
@@ -89,13 +92,23 @@ export function initSocket(io: Server) {
     socket.on("answer-call", ({ to, answer }) => {
       if (!to || !answer) return;
 
-      if (!ongoingCalls.has(userId)) ongoingCalls.set(userId, to);
-      if (!ongoingCalls.has(to)) ongoingCalls.set(to, userId);
+      const now=new Date();
+      if (!ongoingCalls.has(userId)) ongoingCalls.set(userId, { partnerId: to, startTime: now, callType: "audio" });
+      else {
+        const cur=ongoingCalls.get(userId);
+        if(cur && !cur.startTime) cur.startTime=now;
+      }
+      if (!ongoingCalls.has(to)) ongoingCalls.set(to, { partnerId: userId, startTime: now, callType: "audio" });
+      else {
+        const cur2=ongoingCalls.get(to);
+        if(cur2 && !cur2.startTime) cur2.startTime=now;
+      }
 
       const toSocketId = onlineUsers.get(to);
       if (toSocketId) {
         io.to(toSocketId).emit("call-answered", { from: userId, answer });
       }
+      // Update call history to connected (we keep outgoing record, completed will be logged on end)
     });
 
     socket.on("reject-call", ({ to }) => {
@@ -103,6 +116,12 @@ export function initSocket(io: Server) {
       if (toSocketId) {
         io.to(toSocketId).emit("call-rejected", { from: userId });
       }
+      try{
+        const callerInfo=ongoingCalls.get(userId) || ongoingCalls.get(to);
+        const callType=callerInfo?.callType || "audio";
+        const start=callerInfo?.startTime || new Date();
+        logCall({ caller: userId, receiver: to, callType: callType as any, status: "rejected", startTime: start, endTime: new Date(), duration: 0 });
+      }catch{}
       ongoingCalls.delete(userId);
       ongoingCalls.delete(to);
     });
@@ -112,6 +131,17 @@ export function initSocket(io: Server) {
       if (toSocketId) {
         io.to(toSocketId).emit("call-ended", { from: userId });
       }
+      try{
+        const info=ongoingCalls.get(userId) || ongoingCalls.get(to);
+        if(info && info.startTime){
+          const dur=Math.floor((Date.now()- new Date(info.startTime).getTime())/1000);
+          const ct=info.callType || "audio";
+          // Determine caller vs receiver for log - use userId as caller if they were in map as caller
+          const caller=userId;
+          const receiver=to;
+          logCall({ caller, receiver, callType: ct as any, status: "completed", startTime: info.startTime, endTime: new Date(), duration: dur });
+        }
+      }catch{}
       ongoingCalls.delete(userId);
       ongoingCalls.delete(to);
     });
@@ -123,7 +153,12 @@ export function initSocket(io: Server) {
       if (toSocketId) {
         io.to(toSocketId).emit("call-missed", { from: userId });
       }
-
+      try{
+        const info=ongoingCalls.get(userId) || ongoingCalls.get(to);
+        const ct=info?.callType || "audio";
+        const st=info?.startTime || new Date();
+        logCall({ caller: userId, receiver: to, callType: ct as any, status: "missed", startTime: st, endTime: new Date(), duration: 0 });
+      }catch{}
       ongoingCalls.delete(userId);
       ongoingCalls.delete(to);
 
@@ -187,14 +222,18 @@ export function initSocket(io: Server) {
 
       onlineUsers.delete(userId);
 
-      const partner = ongoingCalls.get(userId);
-      if (partner) {
-        const partnerSocket = onlineUsers.get(partner);
+      const partnerInfo = ongoingCalls.get(userId);
+      if (partnerInfo) {
+        const partnerId = partnerInfo.partnerId;
+        const partnerSocket = onlineUsers.get(partnerId);
         if (partnerSocket) {
           io.to(partnerSocket).emit("call-ended", { from: userId });
         }
+        try{
+          logCall({ caller: userId, receiver: partnerId, callType: (partnerInfo.callType as any) || "audio", status: "cancelled", startTime: partnerInfo.startTime, endTime: new Date(), duration: 0 });
+        }catch{}
         ongoingCalls.delete(userId);
-        ongoingCalls.delete(partner);
+        ongoingCalls.delete(partnerId);
       }
 
       socket.broadcast.emit("user-offline", { userId, lastSeen: new Date() });

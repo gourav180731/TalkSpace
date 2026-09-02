@@ -18,6 +18,7 @@ router.patch("/:groupId/admins/:memberId/demote", authMiddleware, groupPermissio
 router.get("/:groupId/messages", authMiddleware, groupPermissionMiddleware, c.getGroupMessages);
 router.post("/:groupId/messages", authMiddleware, groupPermissionMiddleware, upload.single("file"), c.sendGroupMessage);
 router.delete("/:groupId/messages/:messageId", authMiddleware, groupPermissionMiddleware, c.deleteGroupMessage);
+router.delete("/:groupId/messages/:messageId/me", authMiddleware, groupPermissionMiddleware, c.deleteGroupMessageForMe);
 router.patch("/:groupId/messages/:messageId/edit", authMiddleware, groupPermissionMiddleware, c.editGroupMessage);
 router.post("/:groupId/messages/:messageId/react", authMiddleware, groupPermissionMiddleware, c.reactToGroupMessage);
 router.post("/:groupId/messages/:messageId/pin", authMiddleware, groupPermissionMiddleware, requireGroupAdmin, c.pinMessage);

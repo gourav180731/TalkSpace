@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { UserPlus, Star, CheckSquare, MailCheck, Lock, LogOut } from "lucide-react";
+import { UserPlus, Star, CheckSquare, MailCheck, Lock, LogOut, Phone } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
@@ -18,9 +18,12 @@ export default function SidebarHeaderMenu({ onNewGroup, onStarred, onSelectChats
   const handleAppLock = ()=>{
     const next = !appLocked;
     if(next){
-      const pin = prompt("Set app lock PIN (demo 1234):","1234");
+      const pin = prompt("Set app lock PIN (min 4 chars):");
       if(pin===null) return;
-      localStorage.setItem("appLockPin", pin||"1234");
+      if(!pin || pin.length<4){ alert("PIN must be at least 4 characters"); return; }
+      const confirm=prompt("Confirm PIN:");
+      if(confirm!==pin){ alert("PINs do not match"); return; }
+      localStorage.setItem("appLockPin", pin);
     }
     localStorage.setItem("appLocked", String(next));
     setAppLocked(next);
@@ -45,6 +48,7 @@ export default function SidebarHeaderMenu({ onNewGroup, onStarred, onSelectChats
           <button onClick={()=>{ onStarred?.(); setOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-white text-sm"><Star size={18} className="opacity-70"/> Starred messages</button>
           <button onClick={()=>{ onSelectChats?.(); setOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-white text-sm"><CheckSquare size={18} className="opacity-70"/> Select chats</button>
           <button onClick={()=>{ onMarkAllRead?.(); setOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-white text-sm"><MailCheck size={18} className="opacity-70"/> Mark all as read</button>
+          <button onClick={()=>{ navigate("/call-history"); setOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-white text-sm"><Phone size={18} className="opacity-70"/> Call history</button>
           <div className="h-px bg-white/10 my-1"/>
           <button onClick={handleAppLock} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-white text-sm"><Lock size={18} className="opacity-70"/> {appLocked ? "Unlock app" : "App lock"}</button>
           <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-white text-sm"><LogOut size={18} className="opacity-70"/> Log out</button>
