@@ -82,6 +82,7 @@ export default function LoginPage() {
       });
 
       await refreshAuth();
+      navigate("/dashboard", { replace: true });
     } catch (err: any) {
       const msg = err.response?.data?.msg;
 
