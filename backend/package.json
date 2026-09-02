@@ -21,7 +21,6 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/mongoose": "^5.11.96",
     "@types/multer": "^2.0.0",
-    "@types/nodemailer": "^7.0.4",
     "@types/nodemon": "^1.19.6",
     "@types/socket.io": "^3.0.1",
     "@types/socket.io-client": "^1.4.36",
@@ -37,7 +36,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^9.0.0",
     "multer": "^2.0.2",
-    "nodemailer": "^7.0.11",
+    "resend": "^4.0.1",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1"
   },

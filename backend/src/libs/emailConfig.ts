@@ -1,39 +1,25 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
-let transporter: nodemailer.Transporter | null = null;
+let resend: Resend | null = null;
 
 function validateConfig() {
-  const required = [
-    "SMTP_HOST",
-    "SMTP_PORT",
-    "SMTP_USER",
-    "SMTP_PASS",
-    "NOTIFY_EMAIL_FROM",
-  ];
+  const required = ["RESEND_API_KEY", "NOTIFY_EMAIL_FROM"];
   const missing = required.filter((key) => !process.env[key]);
   if (missing.length > 0) {
     throw new Error(
-      `Missing required SMTP environment variables: ${missing.join(", ")}`
+      `Missing required email environment variables: ${missing.join(", ")}`
     );
   }
 }
 
 export function initEmailTransporter() {
-  if (transporter) return;
+  if (resend) return;
 
   validateConfig();
 
-  transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST!,
-    port: Number(process.env.SMTP_PORT),
-    secure: process.env.SMTP_SECURE === "true",
-    auth: {
-      user: process.env.SMTP_USER!,
-      pass: process.env.SMTP_PASS!,
-    },
-  });
+  resend = new Resend(process.env.RESEND_API_KEY!);
 
-  console.log("✅ Email transporter ready (Gmail SMTP)");
+  console.log("✅ Email service ready (Resend HTTPS API)");
 }
 
 export async function sendEmail({
@@ -45,14 +31,29 @@ export async function sendEmail({
   subject: string;
   html: string;
 }) {
-  if (!transporter) {
-    throw new Error("Email transporter not initialized");
+  if (!resend) {
+    throw new Error("Email service not initialized");
   }
 
-  await transporter.sendMail({
-    from: process.env.NOTIFY_EMAIL_FROM!,
+  const from = process.env.NOTIFY_EMAIL_FROM!;
+
+  const { data, error } = await resend.emails.send({
+    from,
     to,
     subject,
     html,
   });
+
+  if (error) {
+    // Log non-sensitive error info without exposing API key
+    console.error("Resend API error", {
+      to,
+      subject,
+      error: error.message || error,
+    });
+    throw new Error(error.message || "Failed to send email via Resend");
+  }
+
+  // Optional: log success without sensitive data
+  // console.log("Email sent via Resend", { to, subject, id: data?.id });
 }

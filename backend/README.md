@@ -96,7 +96,7 @@ It powers **authentication, messaging, friendships, notifications, media handlin
 
 ### Services
 
-* Nodemailer (Email/OTP)
+* Resend HTTPS API (Email/OTP)
 * Gemini API (AI)
 
 ### DevOps
@@ -255,15 +255,20 @@ POST /read-all
 
 ```env id="env992"
 PORT=5000
-MONGO_URI=mongodb://localhost:27017/talkspace
+MONGO_URL=mongodb+srv://user:password@cluster.mongodb.net/talkspace
+# Alternative local: MONGO_URI=mongodb://localhost:27017/talkspace
 
 JWT_SECRET=your_jwt_secret
 JWT_REFRESH_SECRET=your_refresh_secret
+ACCESS_TOKEN_SECRET=your_access_token_secret
+REFRESH_TOKEN_SECRET=your_refresh_token_secret
 
-EMAIL_USER=your_email
-EMAIL_PASS=your_email_password
+RESEND_API_KEY=re_your_resend_api_key
+NOTIFY_EMAIL_FROM=TalkSpace <onboarding@resend.dev>
+# For production, use a verified domain: TalkSpace <noreply@yourdomain.com>
 
 FRONTEND_URL=http://localhost:5173
+# Production: FRONTEND_URL=https://talk-space-chi.vercel.app
 
 CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
