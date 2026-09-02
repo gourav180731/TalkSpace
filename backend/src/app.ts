@@ -23,6 +23,11 @@ import searchRoute from "./routes/searchRoute";
 import stickerRoute from "./routes/stickerRoute";
 const app: Application = express();
 
+// Required when behind Render/Heroku/cloud proxy for X-Forwarded-For
+// and to silence express-rate-limit ERR_ERL_UNEXPECTED_X_FORWARDED_FOR
+// Does not affect email sending (Resend HTTPS), only makes rate-limit use correct client IP
+app.set("trust proxy", 1);
+
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   "http://localhost:5173",

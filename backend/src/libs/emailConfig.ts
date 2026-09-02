@@ -35,7 +35,16 @@ export async function sendEmail({
     throw new Error("Email service not initialized");
   }
 
-  const from = process.env.NOTIFY_EMAIL_FROM!;
+  let from = process.env.NOTIFY_EMAIL_FROM!;
+
+  // Production-safe guard: Resend rejects unverified gmail.com domains
+  // If NOTIFY_EMAIL_FROM accidentally contains gmail, fallback to Resend test sender
+  if (from.toLowerCase().includes("gmail.com")) {
+    console.warn(
+      "NOTIFY_EMAIL_FROM contains gmail.com which Resend will reject; falling back to onboarding@resend.dev"
+    );
+    from = "TalkSpace <onboarding@resend.dev>";
+  }
 
   const { data, error } = await resend.emails.send({
     from,
