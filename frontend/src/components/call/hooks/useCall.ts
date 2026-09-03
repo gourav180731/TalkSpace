@@ -111,11 +111,24 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
     };
 
     peer.ontrack = (event) => {
-      console.log("📥 ontrack", event.track.kind, "from", remoteId);
-      remoteStreamRef.current!.addTrack(event.track);
-      // Attach remote stream with retry (handles ActiveCallWindow not yet mounted)
-      attachWithRetry(remoteVideoRef, remoteStreamRef.current, false);
-      attachWithRetry(remoteAudioRef, remoteStreamRef.current, false);
+      console.log("📥 ontrack", event.track.kind, "from", remoteId, "track id", event.track.id);
+      // Ensure remoteStream exists
+      if(!remoteStreamRef.current) remoteStreamRef.current = new MediaStream();
+      remoteStreamRef.current.addTrack(event.track);
+      // Video track → remoteVideo, Audio track → remoteAudio (and also video element for unified stream)
+      if(event.track.kind === "video"){
+        attachWithRetry(remoteVideoRef, remoteStreamRef.current, false);
+        // Also ensure video element is visible and plays
+        if(remoteVideoRef.current){
+          remoteVideoRef.current.muted = false;
+          remoteVideoRef.current.playsInline = true;
+        }
+      } else if(event.track.kind === "audio"){
+        attachWithRetry(remoteAudioRef, remoteStreamRef.current, false);
+        // Also attach to video element's srcObject for browsers that need audio via video
+        attachWithRetry(remoteVideoRef, remoteStreamRef.current, false);
+      }
+      console.log("📥 remoteStream tracks:", remoteStreamRef.current.getTracks().map(t=> t.kind + ":" + t.id));
     };
 
     peer.onconnectionstatechange = () => {
