@@ -9,7 +9,12 @@ export const pinChat = async (req:Request,res:Response)=>{
     if(user.pinnedChats.some(c=> c.chatId===chatId)) return res.status(409).json({success:false,msg:"Already pinned"});
     if(user.pinnedChats.length>=3) return res.status(400).json({success:false,msg:"Pin limit 3 reached"});
     user.pinnedChats.push({chatId, chatType: chatType||"direct", pinnedAt:new Date()} as any); await user.save();
-    try{ const io=getIO(); io.to(req.user!.userId).emit("chat-pinned",{chatId}); }catch{}
+    try{
+      const { onlineUsers } = await import("../../socket");
+      const sid=onlineUsers.get(req.user!.userId);
+      const io=getIO();
+      if(sid) io.to(sid).emit("chat-pinned",{chatId});
+    }catch{}
     return res.json({success:true, pinned:user.pinnedChats});
   }catch(e){ return res.status(500).json({success:false,msg:"error"});}
 };
@@ -56,7 +61,12 @@ export const deleteChat = async (req:Request,res:Response)=>{
     user.archivedChats=user.archivedChats.filter(c=> c.chatId!==chatId) as any;
     user.pinnedChats=user.pinnedChats.filter(c=> c.chatId!==chatId) as any;
     await user.save();
-    try{ const io=getIO(); io.to(req.user!.userId).emit("chat-deleted",{chatId}); io.to(req.user!.userId).emit("chat-updated",{chatId, deleted:true}); }catch{}
+    try{
+      const { onlineUsers } = await import("../../socket");
+      const sid=onlineUsers.get(req.user!.userId);
+      const io=getIO();
+      if(sid){ io.to(sid).emit("chat-deleted",{chatId}); io.to(sid).emit("chat-updated",{chatId, deleted:true}); }
+    }catch{}
     return res.json({success:true, deleted:user.deletedChats});
   }catch(e){ return res.status(500).json({success:false,msg:"error"});}
 };
@@ -85,14 +95,26 @@ export const muteChat = async (req:Request,res:Response)=>{
     else if(duration) muteUntil=new Date(duration);
     const user=await UserMOdel.findById(req.user?.userId); if(!user) return res.status(404).json({success:false,msg:"User not found"});
     user.mutedChats=user.mutedChats.filter(c=> c.chatId!==chatId); user.mutedChats.push({chatId, chatType:chatType||"direct", muteUntil} as any); await user.save();
-    try{ const io=getIO(); io.to(req.user!.userId).emit("chat-muted",{chatId, muteUntil}); io.to(req.user!.userId).emit("chat-updated",{chatId, muted:true}); }catch{}
+    try{
+      const { onlineUsers } = await import("../../socket");
+      const sid=onlineUsers.get(req.user!.userId);
+      const io=getIO();
+      if(sid) { io.to(sid).emit("chat-muted",{chatId, muteUntil}); io.to(sid).emit("chat-updated",{chatId, muted:true}); }
+      else { io.emit("chat-muted",{chatId, muteUntil}); }
+    }catch{}
     return res.json({success:true, muted:user.mutedChats});
   }catch(e){ return res.status(500).json({success:false,msg:"error"});}
 };
 
 export const unmuteChat = async (req:Request,res:Response)=>{
   try{ const user=await UserMOdel.findById(req.user?.userId); if(!user) return res.status(404).json({success:false,msg:"User not found"}); user.mutedChats=user.mutedChats.filter(c=> c.chatId!==req.params.chatId); await user.save();
-  try{ const io=getIO(); io.to(req.user!.userId).emit("chat-unmuted",{chatId:req.params.chatId}); io.to(req.user!.userId).emit("chat-updated",{chatId:req.params.chatId, muted:false}); }catch{}
+  try{
+    const { onlineUsers } = await import("../../socket");
+    const sid=onlineUsers.get(req.user!.userId);
+    const io=getIO();
+    const payload={chatId:req.params.chatId};
+    if(sid){ io.to(sid).emit("chat-unmuted",payload); io.to(sid).emit("chat-updated",{chatId:req.params.chatId, muted:false}); }
+  }catch{}
   return res.json({success:true, muted:user.mutedChats}); }catch(e){ return res.status(500).json({success:false,msg:"error"});}
 };
 
@@ -101,7 +123,7 @@ export const toggleFavourite = async (req:Request,res:Response)=>{
 };
 export const setupChatLock = async (req:Request,res:Response)=>{
   try{
-    const { pin } = req.body; if(!pin || pin.length<4) return res.status(400).json({success:false,msg:"PIN must be at least 4 characters"});
+    let { pin } = req.body; if(pin) pin=String(pin).trim(); if(!pin || pin.length<4) return res.status(400).json({success:false,msg:"PIN must be at least 4 characters"});
     const user=await UserMOdel.findById(req.user?.userId).select("+chatLockHash"); if(!user) return res.status(404).json({success:false,msg:"User not found"});
     const bcrypt=require("bcryptjs");
     const hash=await bcrypt.hash(pin, 10);
@@ -112,7 +134,7 @@ export const setupChatLock = async (req:Request,res:Response)=>{
 
 export const verifyChatLock = async (req:Request,res:Response)=>{
   try{
-    const { pin } = req.body; const user=await UserMOdel.findById(req.user?.userId).select("+chatLockHash");
+    let { pin } = req.body; if(pin) pin=String(pin).trim(); const user=await UserMOdel.findById(req.user?.userId).select("+chatLockHash");
     if(!user || !user.chatLockHash) return res.status(400).json({success:false,msg:"No PIN set"});
     const bcrypt=require("bcryptjs");
     const ok=await bcrypt.compare(pin, user.chatLockHash);
@@ -136,24 +158,24 @@ export const removeChatLock = async (req:Request,res:Response)=>{
 
 export const toggleLock = async (req:Request,res:Response)=>{
   try{
-    const { chatId, chatType, pin }=req.body; const user=await UserMOdel.findById(req.user?.userId).select("+chatLockHash");
+    let { chatId, chatType, pin }=req.body; if(pin) pin=String(pin).trim();
+    const user=await UserMOdel.findById(req.user?.userId).select("+chatLockHash");
     if(!user) return res.status(404).json({success:false,msg:"User not found"});
     if(!user.chatLockHash){
       // First time: require pin to set
       if(!pin) return res.status(400).json({success:false,msg:"PIN required to set up chat lock"});
+      if(pin.length<4) return res.status(400).json({success:false,msg:"PIN must be at least 4 characters"});
       const bcrypt=require("bcryptjs");
       const hash=await bcrypt.hash(pin, 10);
       user.chatLockHash=hash; user.chatLockEnabled=true;
     } else {
-      // Verify pin if provided, otherwise require verification via separate endpoint
+      // Verify pin if provided
       if(pin){
         const bcrypt=require("bcryptjs");
         const ok=await bcrypt.compare(pin, user.chatLockHash);
         if(!ok) return res.status(401).json({success:false,msg:"Invalid PIN"});
       } else {
-        // If no pin provided and lock already set, require verification
-        // For backward compat, allow toggle without pin but log warning
-        // In production, frontend should call verify endpoint first
+        return res.status(401).json({success:false,msg:"PIN required"});
       }
     }
     const exists=user.lockedChats.some(c=>c.chatId===chatId);

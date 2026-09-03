@@ -256,17 +256,27 @@ const scrollToMessage = async (messageId: string) => {
         <p className="text-white font-medium">This chat is locked</p>
         <p className="text-white/60 text-xs">Enter your Chat Lock PIN to view</p>
         <button onClick={async()=>{
-          const pin=prompt("Enter Chat Lock PIN:");
+          let pin=prompt("Enter Chat Lock PIN:");
           if(!pin) return;
+          pin=pin.trim();
+          if(pin.length<4){ alert("PIN must be at least 4 characters"); return; }
           try{
-            const { verifyChatLock } = await import("../../apis/chatManagement.api");
-            await verifyChatLock(pin);
-            setIsLocked(false);
+            const { toggleLock } = await import("../../apis/chatManagement.api");
+            const res=await toggleLock(chat._id, isGroup?"group":"direct", pin);
+            if(res.data.locked===false || res.data.success){
+              setIsLocked(false);
+            } else {
+              // Fallback verify
+              const { verifyChatLock } = await import("../../apis/chatManagement.api");
+              await verifyChatLock(pin);
+              setIsLocked(false);
+            }
           }catch(e:any){ alert(e.response?.data?.msg||"Invalid PIN"); }
         }} className="px-6 py-2 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white">Unlock</button>
         <button onClick={async()=>{
-          const pin=prompt("Enter PIN to permanently remove Chat Lock (this will unlock all chats):");
+          let pin=prompt("Enter PIN to permanently remove Chat Lock (this will unlock all chats):");
           if(!pin) return;
+          pin=pin.trim();
           try{
             const { removeChatLock } = await import("../../apis/chatManagement.api");
             await removeChatLock(pin);

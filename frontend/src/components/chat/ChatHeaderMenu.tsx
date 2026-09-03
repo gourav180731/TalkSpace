@@ -31,12 +31,12 @@ export default function ChatHeaderMenu({ chat, onSearch, onSelectMode, onCloseCh
     setOpen(false);
   };
   const handleLock = async()=>{
-    // Check current lock status
     let isCurrentlyLocked=false;
     try{ const r=await axiosInstance.get(`/chat-management/settings/${chatId}`); isCurrentlyLocked=!!r.data.isLocked; }catch{}
     const action = isCurrentlyLocked ? "unlock" : "lock";
-    const pin = prompt(`Enter your Chat Lock PIN to ${action} this chat (min 4 chars):`);
+    let pin = prompt(`Enter your Chat Lock PIN to ${action} this chat (min 4 chars):`);
     if(!pin) return;
+    pin=pin.trim();
     if(pin.length<4){ alert("PIN must be at least 4 characters"); return; }
     try{
       const res=await axiosInstance.post("/chat-management/lock", { chatId, chatType: isGroup?"group":"direct", pin });
@@ -44,11 +44,11 @@ export default function ChatHeaderMenu({ chat, onSearch, onSelectMode, onCloseCh
     }catch(e:any){
       const msg=e.response?.data?.msg||"";
       if(msg.includes("PIN required")){
-        const pin2=prompt("Create new Chat Lock PIN (min 4 chars):");
-        if(!pin2) return;
+        let pin2 = prompt("Create new Chat Lock PIN (min 4 chars):");
+        if(!pin2) return; pin2=pin2.trim();
         if(pin2.length<4){ alert("PIN too short"); return; }
         const confirm=prompt("Confirm PIN:");
-        if(confirm!==pin2){ alert("PINs do not match"); return; }
+        if(confirm?.trim()!==pin2){ alert("PINs do not match"); return; }
         try{
           await axiosInstance.post("/chat-management/lock/setup", { pin: pin2 });
           const res2=await axiosInstance.post("/chat-management/lock", { chatId, chatType: isGroup?"group":"direct", pin: pin2 });
