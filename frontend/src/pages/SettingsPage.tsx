@@ -133,7 +133,7 @@ const SettingsPage = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="rounded-2xl bg-white/5 border border-white/10 p-6 flex flex-col items-center text-center gap-4 hover:bg-white/10 transition">
-              <img src="/founder-gourav.svg" alt="Gourav" className="w-24 h-24 rounded-2xl object-cover border-2 border-indigo-500/20 shadow-lg" />
+              <img src="/founder-gourav.jpeg" alt="Gourav" className="w-24 h-24 rounded-2xl object-cover border-2 border-indigo-500/20 shadow-lg" onError={(e)=>{ (e.target as HTMLImageElement).src="/founder-gourav.svg"; }} />
               <div>
                 <h4 className="text-white font-semibold">Gourav</h4>
                 <p className="text-white/40 text-xs mt-1">Co-Founder</p>
@@ -143,7 +143,7 @@ const SettingsPage = () => {
             </div>
 
             <div className="rounded-2xl bg-white/5 border border-white/10 p-6 flex flex-col items-center text-center gap-4 hover:bg-white/10 transition">
-              <img src="/founder-anand.svg" alt="Anand" className="w-24 h-24 rounded-2xl object-cover border-2 border-sky-500/20 shadow-lg" />
+              <img src="/founder-anand.jpeg" alt="Anand" className="w-24 h-24 rounded-2xl object-cover border-2 border-sky-500/20 shadow-lg" onError={(e)=>{ (e.target as HTMLImageElement).src="/founder-anand.svg"; }} />
               <div>
                 <h4 className="text-white font-semibold">Anand</h4>
                 <p className="text-white/40 text-xs mt-1">Co-Founder</p>
