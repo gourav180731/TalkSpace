@@ -50,6 +50,32 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
     };
   }, []);
 
+  // Helper to attach with retry (handles ref not mounted yet)
+  const attachWithRetry = (ref:any, stream:MediaStream|null, isLocal=false) => {
+    if(!ref || !stream) return;
+    const tryAttach = () => {
+      if(ref.current){
+        ref.current.srcObject = stream;
+        if(isLocal){
+          ref.current.muted = true;
+          ref.current.volume = 0;
+        } else {
+          // remote should not be muted
+          if(ref.current) ref.current.muted = false;
+        }
+        ref.current.play().catch(()=>{});
+        return true;
+      }
+      return false;
+    };
+    if(!tryAttach()){
+      let attempts=0;
+      const iv=setInterval(()=>{
+        if(tryAttach() || ++attempts>20) clearInterval(iv);
+      }, 100);
+    }
+  };
+
   // CREATE PEER
   const createPeer = (remoteId: string) => {
     remoteStreamRef.current = new MediaStream();
@@ -85,18 +111,11 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
     };
 
     peer.ontrack = (event) => {
+      console.log("📥 ontrack", event.track.kind, "from", remoteId);
       remoteStreamRef.current!.addTrack(event.track);
-
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = remoteStreamRef.current;
-      }
-
-      if (remoteAudioRef.current) {
-        remoteAudioRef.current.srcObject = remoteStreamRef.current;
-        remoteAudioRef.current.muted = isSpeakerMutedRef.current;
-        remoteAudioRef.current.volume = 1;
-        remoteAudioRef.current.play().catch(() => {});
-      }
+      // Attach remote stream with retry (handles ActiveCallWindow not yet mounted)
+      attachWithRetry(remoteVideoRef, remoteStreamRef.current, false);
+      attachWithRetry(remoteAudioRef, remoteStreamRef.current, false);
     };
 
     peer.onconnectionstatechange = () => {
@@ -155,9 +174,7 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
       localStreamRef.current = stream;
       setActiveCallUserId(to);
 
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-      }
+      attachWithRetry(localVideoRef, stream, true);
 
       const peer = createPeer(to);
       peerRef.current = peer;
@@ -174,7 +191,7 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
       callSocket.setCallUser(user);
 
       socket.emit("call-user", { to, offer: peer.localDescription, user, type });
-      console.log("📤 call-user emitted to", to);
+      console.log("📤 call-user emitted to", to, "as", (user as any)?.username);
     } catch (err:any) {
       console.error("❌ getUserMedia error", err);
       const msg = err?.name === "NotAllowedError" ? "Microphone/Camera permission denied" : err?.name === "NotFoundError" ? "No camera/mic found" : "Failed to start call";
@@ -216,9 +233,7 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
     localStreamRef.current = stream;
     setActiveCallUserId(from);
 
-    if (localVideoRef.current) {
-      localVideoRef.current.srcObject = stream;
-    }
+    attachWithRetry(localVideoRef, stream, true);
 
     const peer = createPeer(from);
     peerRef.current = peer;
@@ -391,5 +406,8 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
     toggleMute,
     switchCamera,
     toggleSpeaker,
+    localStreamRef,
+    remoteStreamRef,
+    attachWithRetry,
   };
 }

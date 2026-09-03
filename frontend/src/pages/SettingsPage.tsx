@@ -122,7 +122,7 @@ const SettingsPage = () => {
       )}
 
       {tab==="founder" && (
-        <div className="max-w-xl bg-white/80 dark:bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-xl">
+        <div className="max-w-2xl bg-white/80 dark:bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 md:p-8 shadow-xl">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-600 to-blue-500 flex items-center justify-center text-white font-bold">Fi</div>
             <div>
@@ -131,33 +131,33 @@ const SettingsPage = () => {
             </div>
           </div>
 
-          <div className="rounded-2xl bg-white/5 border border-white/10 p-6 flex flex-col items-center text-center gap-4">
-            <div className="w-20 h-20 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
-              <span className="text-white/40 text-2xl">—</span>
-            </div>
-            <div>
-              <h4 className="text-white font-medium">Information Coming Soon</h4>
-              <p className="text-white/60 text-sm mt-1 max-w-sm">
-                This section is reserved for founder details. Content will be added here when available, without any changes to navigation or layout.
-              </p>
-            </div>
-
-            <div className="w-full grid grid-cols-1 gap-3 mt-2 text-left">
-              <div className="rounded-xl bg-[#0b0d12] border border-white/10 p-4 opacity-50">
-                <p className="text-white/40 text-xs uppercase tracking-wide">Name</p>
-                <p className="text-white/60 text-sm mt-1">—</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="rounded-2xl bg-white/5 border border-white/10 p-6 flex flex-col items-center text-center gap-4 hover:bg-white/10 transition">
+              <img src="/founder-gourav.svg" alt="Gourav" className="w-24 h-24 rounded-2xl object-cover border-2 border-indigo-500/20 shadow-lg" />
+              <div>
+                <h4 className="text-white font-semibold">Gourav</h4>
+                <p className="text-white/40 text-xs mt-1">Co-Founder</p>
               </div>
-              <div className="rounded-xl bg-[#0b0d12] border border-white/10 p-4 opacity-50">
-                <p className="text-white/40 text-xs uppercase tracking-wide">Role</p>
-                <p className="text-white/60 text-sm mt-1">—</p>
-              </div>
-              <div className="rounded-xl bg-[#0b0d12] border border-white/10 p-4 opacity-50">
-                <p className="text-white/40 text-xs uppercase tracking-wide">Message</p>
-                <p className="text-white/60 text-sm mt-1 leading-relaxed">—</p>
-              </div>
+              <div className="w-full h-px bg-white/10 my-1" />
+              <p className="text-white/30 text-xs">Details to be added</p>
             </div>
 
-            <p className="text-white/30 text-[11px] mt-2">This page is intentionally blank and ready for future content.</p>
+            <div className="rounded-2xl bg-white/5 border border-white/10 p-6 flex flex-col items-center text-center gap-4 hover:bg-white/10 transition">
+              <img src="/founder-anand.svg" alt="Anand" className="w-24 h-24 rounded-2xl object-cover border-2 border-sky-500/20 shadow-lg" />
+              <div>
+                <h4 className="text-white font-semibold">Anand</h4>
+                <p className="text-white/40 text-xs mt-1">Co-Founder</p>
+              </div>
+              <div className="w-full h-px bg-white/10 my-1" />
+              <p className="text-white/30 text-xs">Details to be added</p>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-xl bg-[#0b0d12] border border-white/10 p-4">
+            <p className="text-white/40 text-xs uppercase tracking-wide">About</p>
+            <p className="text-white/50 text-sm mt-2 leading-relaxed">
+              Founder information is structured to allow easy addition of biography, roles, and links in the future without changing the layout. This section is intentionally minimal.
+            </p>
           </div>
 
           <div className="mt-4 flex items-center justify-center gap-2 text-white/30 text-xs">

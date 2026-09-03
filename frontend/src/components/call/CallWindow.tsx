@@ -256,6 +256,32 @@ export default function CallWindow() {
     }
   }, [callSocket.callStatus]);
 
+  // Re-attach streams when call becomes active (handles ref mount race)
+  useEffect(() => {
+    if (isActive) {
+      const tryAttach = () => {
+        if ((call as any).localStreamRef?.current && localVideoRef.current && !localVideoRef.current.srcObject) {
+          localVideoRef.current.srcObject = (call as any).localStreamRef.current;
+          localVideoRef.current.play().catch(()=>{});
+        }
+        if ((call as any).remoteStreamRef?.current) {
+          if (remoteVideoRef.current && !remoteVideoRef.current.srcObject) {
+            remoteVideoRef.current.srcObject = (call as any).remoteStreamRef.current;
+            remoteVideoRef.current.play().catch(()=>{});
+          }
+          if (remoteAudioRef.current && !remoteAudioRef.current.srcObject) {
+            remoteAudioRef.current.srcObject = (call as any).remoteStreamRef.current;
+            remoteAudioRef.current.play().catch(()=>{});
+          }
+        }
+      };
+      tryAttach();
+      const t=setTimeout(tryAttach, 300);
+      const t2=setTimeout(tryAttach, 800);
+      return ()=>{ clearTimeout(t); clearTimeout(t2); };
+    }
+  }, [isActive, isVideo]);
+
   const fmt = (s: number) =>
     `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
