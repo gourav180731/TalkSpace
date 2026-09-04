@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getChatCallHistory } from "../../apis/callHistory.api";
+import { socket } from "../../apis/socket";
 import { PhoneIncoming, PhoneOutgoing, PhoneMissed, Video, Phone } from "lucide-react";
 
 function formatDuration(sec?:number){
@@ -12,10 +13,20 @@ function formatDuration(sec?:number){
 export default function CallHistoryList({ userId }: { userId: string }){
   const [history,setHistory]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
-  useEffect(()=>{
+  const load=()=>{
     if(!userId) return;
     setLoading(true);
     getChatCallHistory(userId).then(r=> setHistory(r.data.history||[])).catch(()=>{}).finally(()=> setLoading(false));
+  };
+  useEffect(()=>{
+    load();
+    const onCallEnd=()=> load();
+    const onNewCallMsg=(p:any)=>{ if(p?.message?.messageType==="call") load(); };
+    socket.on("call-ended", onCallEnd);
+    socket.on("call-missed", onCallEnd);
+    socket.on("call-rejected", onCallEnd);
+    socket.on("new-message", onNewCallMsg);
+    return ()=>{ socket.off("call-ended", onCallEnd); socket.off("call-missed", onCallEnd); socket.off("call-rejected", onCallEnd); socket.off("new-message", onNewCallMsg); };
   },[userId]);
 
   if(loading) return <div className="p-3 text-white/40 text-xs">Loading calls…</div>;

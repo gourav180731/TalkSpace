@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getGlobalCallHistory } from "../../apis/callHistory.api";
+import { socket } from "../../apis/socket";
 import { PhoneIncoming, PhoneOutgoing, PhoneMissed, Video, Phone } from "lucide-react";
 
 function formatDuration(sec?:number){
@@ -30,7 +31,16 @@ export default function CallHistory(){
       setHistory(r.data.history||[]);
     }catch{} finally{ setLoading(false); }
   };
-  useEffect(()=>{ load(); },[]);
+  useEffect(()=>{
+    load();
+    const onCallEnd=()=> load();
+    const onNewCallMsg=(p:any)=>{ if(p?.message?.messageType==="call") load(); };
+    socket.on("call-ended", onCallEnd);
+    socket.on("call-missed", onCallEnd);
+    socket.on("call-rejected", onCallEnd);
+    socket.on("new-message", onNewCallMsg);
+    return ()=>{ socket.off("call-ended", onCallEnd); socket.off("call-missed", onCallEnd); socket.off("call-rejected", onCallEnd); socket.off("new-message", onNewCallMsg); };
+  },[]);
 
   const filtered=history.filter((h:any)=>{
     if(filter!=="all" && !(h.status===filter || h.direction===filter)) return false;

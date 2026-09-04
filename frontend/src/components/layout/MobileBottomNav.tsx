@@ -38,8 +38,8 @@ export default function MobileBottomNav({
 }: Props) {
   const navigate = useNavigate();
   const { unreadCount } = useNotifications();
-  const { callStatus } = useGlobalCall();
-  const isInCall = callStatus === "calling" || callStatus === "ringing" || callStatus === "connected";
+  const { callStatus, isMinimized } = useGlobalCall();
+  const isInCall = (callStatus === "calling" || callStatus === "ringing" || callStatus === "connected") && !isMinimized;
 
   const handleNewChat = () => {
     if (onNewChat) onNewChat();

@@ -13,11 +13,16 @@ import { useGlobalCall } from "../context/CallContext";
 export default function DashboardPage() {
   const [selectedChat, setSelectedChat] = useState<any>(null);
   const [showFriendsPicker, setShowFriendsPicker] = useState(false);
-  const { callStatus, minimizeCall } = useGlobalCall();
+  const { callStatus, isMinimized, minimizeCall } = useGlobalCall();
   const isMobileChatOpen = Boolean(selectedChat);
   const handleBack = () => {
     if (callStatus === "calling" || callStatus === "connected" || callStatus === "ringing") {
-      minimizeCall();
+      if (!isMinimized) {
+        minimizeCall();
+        return;
+      }
+      // Already minimized: allow navigation to list
+      setSelectedChat(null);
       return;
     }
     setSelectedChat(null);

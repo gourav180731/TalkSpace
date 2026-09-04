@@ -222,24 +222,19 @@ export const CallProvider = ({ children }: any) => {
   const minimizeCall = () => setIsMinimized(true);
   const maximizeCall = () => setIsMinimized(false);
 
-  // Auto-minimize on browser back when call active
+  // Browser back: minimize instead of ending, but allow navigation
   useEffect(()=>{
     const onPopState = ()=>{
       if(callStatusRef.current !== "idle" && !isMinimized){
-        // Prevent actual back navigation, minimize instead
-        window.history.pushState(null, "");
+        // Minimize but do NOT block navigation – user can go to list/settings
         setIsMinimized(true);
       }
     };
     if(typeof window !== "undefined"){
       window.addEventListener("popstate", onPopState);
-      // Push state when call becomes active to intercept back
-      if(callStatus === "calling" || callStatus === "connected" || callStatus === "ringing"){
-        window.history.pushState({callMinimized:true}, "");
-      }
       return ()=> window.removeEventListener("popstate", onPopState);
     }
-  }, [callStatus, isMinimized]);
+  }, [isMinimized]);
 
   // Cleanup only on explicit end, not minimize
   const cleanupStreams = () => {
