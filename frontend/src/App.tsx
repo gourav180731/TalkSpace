@@ -14,6 +14,7 @@ import ProfilePage from "./pages/profile/ProfilePage";
 import NotificationsPage from "./pages/NotificationsPage";
 import SettingsPage from "./pages/SettingsPage";
 import CallHistoryPage from "./pages/CallHistoryPage";
+import StatusPage from "./pages/StatusPage";
 import PublicRoute from "./routes/PublicRoute";
 import CallWindow from "./components/call/CallWindow";
 
@@ -33,6 +34,7 @@ function App() {
       <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       <Route path="/call-history" element={<ProtectedRoute><CallHistoryPage /></ProtectedRoute>} />
+      <Route path="/status" element={<ProtectedRoute><StatusPage /></ProtectedRoute>} />
 
       <Route
         path="/dashboard"

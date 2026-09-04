@@ -125,7 +125,8 @@ export const getGlobalHistory = async (req:Request,res:Response)=>{
       $or: [{ caller: userId }, { receiver: userId }]
     }).populate("caller","username avatar").populate("receiver","username avatar").sort({createdAt:-1}).skip(skip).limit(limit).lean();
     const mapped=histories.map((h:any)=>{
-      const isOutgoing=h.caller.toString()===userId;
+      const callerId = h.caller?._id ? h.caller._id.toString() : h.caller.toString();
+      const isOutgoing=callerId===userId;
       const other=isOutgoing ? h.receiver : h.caller;
       return {
         _id:h._id,
@@ -158,7 +159,8 @@ export const getChatHistory = async (req:Request,res:Response)=>{
       ]
     }).sort({createdAt:-1}).skip(skip).limit(limit).lean();
     const mapped=histories.map((h:any)=>{
-      const isOutgoing=h.caller.toString()===userId;
+      const callerId = h.caller?._id ? h.caller._id.toString() : h.caller.toString();
+      const isOutgoing=callerId===userId;
       return {
         _id:h._id,
         callType:h.callType,

@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { X, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface Props {
@@ -117,6 +118,13 @@ export default function StatusViewer({ statuses, initialIndex=0, onClose, onView
     return()=> window.removeEventListener("keydown", onKey);
   },[statuses.length, onClose]);
 
+  // Lock body scroll when viewer open
+  useEffect(()=>{
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return ()=> { document.body.style.overflow = prev; };
+  },[]);
+
   if(!status) return null;
   const owner = status.userId || {};
   const ownerName = owner.username || owner.firstName || "Unknown";
@@ -124,18 +132,16 @@ export default function StatusViewer({ statuses, initialIndex=0, onClose, onView
   const timeLeft = Math.max(0, 24 - Math.floor((Date.now()-new Date(status.createdAt).getTime())/3600000));
   const isExpired = new Date(status.expiryTime) < new Date();
 
-  if(isExpired) return (
-    <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={onClose}>
+  const viewer = isExpired ? (
+    <div className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-md flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-[#121520] border border-white/10 rounded-3xl p-8 text-center">
         <p className="text-white/60">This status has expired</p>
         <button onClick={onClose} className="mt-4 px-4 py-2 rounded-full bg-indigo-600 text-white text-sm">Close</button>
       </div>
     </div>
-  );
-
-  return (
-    <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-0 md:p-4" onClick={onClose}>
-      <div className="relative w-full h-full md:max-w-md md:h-[80vh] md:rounded-3xl overflow-hidden bg-[#0b0d12] border md:border-white/10 shadow-2xl flex flex-col" onClick={e=> e.stopPropagation()} onMouseDown={()=> setPaused(true)} onMouseUp={()=> setPaused(false)} onMouseLeave={()=> setPaused(false)} onTouchStart={()=> setPaused(true)} onTouchEnd={()=> setPaused(false)}>
+  ) : (
+    <div className="fixed inset-0 z-[9999] bg-black flex flex-col w-screen h-[100dvh] overflow-hidden" style={{paddingTop:'env(safe-area-inset-top)', paddingBottom:'env(safe-area-inset-bottom)'}} onClick={onClose}>
+      <div className="relative w-screen h-[100dvh] overflow-hidden bg-black flex flex-col" onClick={e=> e.stopPropagation()} onMouseDown={()=> setPaused(true)} onMouseUp={()=> setPaused(false)} onMouseLeave={()=> setPaused(false)} onTouchStart={()=> setPaused(true)} onTouchEnd={()=> setPaused(false)}>
         {/* Progress */}
         <div className="absolute top-0 left-0 right-0 flex gap-1 p-2 z-10">
           {statuses.map((_:any,i:number)=>(
@@ -199,7 +205,7 @@ export default function StatusViewer({ statuses, initialIndex=0, onClose, onView
         </div>
         {/* Viewers (owner only) */}
         {isOwner && status.viewers && (
-          <div className="p-3 bg-[#121520] border-t border-white/10">
+          <div className="p-3 bg-[#121520] border-t border-white/10 shrink-0">
             <p className="text-white/60 text-xs flex items-center gap-1"><Eye size={12}/> {status.viewers.length} views</p>
             {status.viewers.length>0 && (
               <div className="mt-2 max-h-20 overflow-auto space-y-1">
@@ -213,4 +219,6 @@ export default function StatusViewer({ statuses, initialIndex=0, onClose, onView
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(viewer, document.body) : viewer;
 }

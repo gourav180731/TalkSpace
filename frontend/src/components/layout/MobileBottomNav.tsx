@@ -3,13 +3,13 @@ import {
   MessageCircle,
   Settings,
   Plus,
-  Bell,
   Phone,
+  CircleDot,
 } from "lucide-react";
 import { useNotifications } from "../../context/NotificationContext";
 import { useGlobalCall } from "../../context/CallContext";
 
-type NavKey = "home" | "settings" | "notifications" | "call-history" | "profile";
+type NavKey = "home" | "settings" | "status" | "call-history" | "notifications" | "profile";
 
 type Props = {
   active: NavKey;
@@ -27,7 +27,7 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { key: "home",          icon: MessageCircle, label: "Chats",    route: "/dashboard"  },
   { key: "settings",      icon: Settings,      label: "Settings", route: "/settings"   },
-  { key: "notifications", icon: Bell,          label: "Alerts",   route: "/notifications" },
+  { key: "status",        icon: CircleDot,     label: "Status",   route: "/status" },
   { key: "call-history",  icon: Phone,         label: "Calls",    route: "/call-history" },
 ];
 

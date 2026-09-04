@@ -8,7 +8,7 @@ export function useSidebar() {
   const [chats, setChats] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [query, setQuery] = useState("");
-  const [mode, setMode] = useState<"chats" | "requests" | "starred" | "archived">("chats");
+  const [mode, setMode] = useState<"chats" | "requests" | "groups" | "starred" | "archived">("chats");
   const [friends, setFriends] = useState<any[]>([]);
   const [archivedIds, setArchivedIds] = useState<Set<string>>(new Set());
   const [mutedIds, setMutedIds] = useState<Set<string>>(new Set());

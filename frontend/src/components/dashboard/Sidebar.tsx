@@ -7,7 +7,6 @@ import FriendsBubble from "./FriendsBubble";
 import FriendsPicker from "./FriendsPicker";
 import CreateGroupModal from "../groups/CreateGroupModal";
 import GroupList from "../groups/GroupList";
-import StatusList from "../status/StatusList";
 import SidebarHeaderMenu from "./SidebarHeaderMenu";
 import { useState } from "react";
 import { useSidebar } from "./useSidebar";
@@ -41,7 +40,6 @@ export default function Sidebar({
     setSelectMode,
   } = useSidebar() as any;
   const [showGroupModal,setShowGroupModal]=useState(false);
-  const [showGroups,setShowGroups]=useState(false);
   const [selectedChatIds,setSelectedChatIds]=useState<Set<string>>(new Set());
   // expose for header menu
   (window as any).__setChatSelectMode = setSelectMode;
@@ -113,7 +111,6 @@ export default function Sidebar({
             onClick={() => {
               setMode("chats");
               setQuery("");
-              setShowGroups(false);
             }}
             className={`text-xs px-3 py-1.5 rounded-full font-medium border transition ${
               mode === "chats"
@@ -127,7 +124,6 @@ export default function Sidebar({
             onClick={() => {
               setMode("requests");
               setQuery("");
-              setShowGroups(false);
             }}
             className={`text-xs px-3 py-1.5 rounded-full font-medium border transition ${
               mode === "requests"
@@ -137,11 +133,20 @@ export default function Sidebar({
           >
             Requests
           </button>
-          {showGroups && (
-            <button onClick={()=> setShowGroups(false)} className="text-xs px-3 py-1.5 rounded-full bg-white/10 text-white/70 border border-white/10">Hide Groups ✕</button>
-          )}
+          <button
+            onClick={() => {
+              setMode("groups" as any);
+              setQuery("");
+            }}
+            className={`text-xs px-3 py-1.5 rounded-full font-medium border transition ${
+              (mode as any) === "groups"
+                ? "bg-indigo-600 text-white border-indigo-500"
+                : "bg-white/5 hover:bg-white/10 text-white/80 border-white/10"
+            }`}
+          >
+            Groups
+          </button>
         </div>
-        <StatusList />
       </div>
 
       {/*  LIST */}
@@ -175,7 +180,7 @@ export default function Sidebar({
             </div>
           </div>
         )}
-        {showGroups && <GroupList onSelect={(g:any)=> onSelectChat({ _id:g._id, username:g.name, avatar:g.avatar, isGroup:true, group:g })} />}
+        {(mode as any) === "groups" && <GroupList onSelect={(g:any)=> onSelectChat({ _id:g._id, username:g.name, avatar:g.avatar, isGroup:true, group:g })} />}
         {mode === "requests" && <FriendRequests onAccepted={loadChats} />}
 
         {mode === "starred" && (
@@ -201,6 +206,14 @@ export default function Sidebar({
         )}
 
         {mode === "chats" && query && <SearchResults users={allUsers} />}
+
+        {/* Archived directly above first normal chat (Task 9) */}
+        {mode==="chats" && !query && !selectMode && (
+          <button onClick={()=> setMode("archived")} className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 text-sm">
+            <span className="flex items-center gap-2">📦 Archived</span>
+            <span className="text-xs bg-white/10 px-2 py-0.5 rounded-full">{archivedIds.size}</span>
+          </button>
+        )}
 
         {mode === "chats" &&
           !query &&
@@ -240,12 +253,6 @@ export default function Sidebar({
                 </div>
               );
             })}
-        {mode==="chats" && !query && !selectMode && (
-          <button onClick={()=> setMode("archived")} className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 text-sm mt-2">
-            <span className="flex items-center gap-2">📦 Archived</span>
-            <span className="text-xs bg-white/10 px-2 py-0.5 rounded-full">{archivedIds.size}</span>
-          </button>
-        )}
       </div>
       <CreateGroupModal open={showGroupModal} onClose={()=> setShowGroupModal(false)} onCreated={loadChats} />
 

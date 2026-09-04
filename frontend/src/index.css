@@ -55,6 +55,19 @@ html:not(.dark) .text-white\/70 { color: #334155 !important; }
 html:not(.dark) .placeholder\:text-white\/40::placeholder { color: #94a3b8 !important; }
 /* Inputs light */
 html:not(.dark) input.bg-\[\#0b0d12\] { background: #ffffff !important; color: #0f172a !important; border-color: rgba(199,210,254,0.9) !important; }
+/* Extended light overrides for chat visibility */
+html:not(.dark) .bg-white\/5 { background: rgba(255,255,255,0.75) !important; border-color: rgba(199,210,254,0.6) !important; }
+html:not(.dark) .bg-white\/10 { background: rgba(255,255,255,0.9) !important; border-color: rgba(199,210,254,0.7) !important; }
+html:not(.dark) .bg-white\/\[0\.04\], html:not(.dark) .bg-white\/\[0\.02\] { background: rgba(255,255,255,0.85) !important; border-color: rgba(199,210,254,0.7) !important; }
+html:not(.dark) .bg-\[\#111b21\] { background: #ffffff !important; border-color: rgba(199,210,254,0.8) !important; }
+html:not(.dark) .bg-\[\#111b21\] .text-white { color: #0f172a !important; }
+html:not(.dark) .hover\:bg-white\/5:hover { background: rgba(241,245,249,0.9) !important; }
+html:not(.dark) .hover\:bg-white\/10:hover { background: rgba(226,232,240,0.9) !important; }
+html:not(.dark) .text-white\/30 { color: #64748b !important; }
+html:not(.dark) .text-white\/40 { color: #475569 !important; }
+html:not(.dark) .border-white\/15 { border-color: rgba(199,210,254,0.8) !important; }
+html:not(.dark) .bg-black\/5, html:not(.dark) .bg-black\/20 { background: rgba(241,245,249,0.8) !important; }
+html:not(.dark) .text-white\/90 { color: #0f172a !important; }
 
 .ts-wordmark {
   font-family: 'Inter', system-ui, sans-serif;
