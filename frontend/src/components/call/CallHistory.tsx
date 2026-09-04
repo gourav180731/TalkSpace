@@ -72,12 +72,12 @@ export default function CallHistory(){
         <div className="space-y-2">
           {filtered.map((h:any)=>(
             <div key={h._id} className="flex items-center gap-3 p-3 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition">
-              <img src={h.other?.avatar||"/avatar-placeholder.png"} className="w-10 h-10 rounded-full object-cover" alt={h.other?.username}/>
+              <img src={h.other?.avatar||"/avatar-placeholder.png"} className="w-10 h-10 rounded-full object-cover" alt={h.other?.name || h.other?.username}/>
               <div className="flex-1 min-w-0">
-                <p className="text-white text-sm font-medium truncate">{h.other?.username||"Unknown"}</p>
+                <p className="text-white text-sm font-medium truncate">{h.other?.name || h.other?.username||"Unknown"} {h.isGroupCall && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-600 text-white ml-1">Group</span>}</p>
                 <p className="text-white/60 text-xs flex items-center gap-1.5">
                   <StatusIcon status={h.status} direction={h.direction} callType={h.callType}/>
-                  {h.direction} · {h.callType} · {h.status}
+                  {h.direction} · {h.callType} · {h.status} {h.isGroupCall ? "· Group" : ""}
                 </p>
               </div>
               <div className="text-right">
