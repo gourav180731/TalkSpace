@@ -13,7 +13,7 @@ export default function CallHistoryPage(){
       <div className="absolute top-40 -right-40 w-[400px] h-[400px] bg-blue-500/20 blur-[140px] rounded-full pointer-events-none" />
       <div className="absolute inset-0 bg-grid opacity-20 pointer-events-none" />
       <div className="hidden md:block fixed top-1 left-1/2 -translate-x-1/2 w-[94%] max-w-6xl z-[100]">
-        <AppNavbar />
+        <AppNavbar active="call-history" />
       </div>
       <div className="relative z-10 md:pt-24">
         <div className="max-w-3xl mx-auto h-[calc(100vh)] md:h-[calc(100vh-8rem)] overflow-hidden md:rounded-3xl bg-[#121520]/90 backdrop-blur-xl border border-white/10 shadow-2xl flex flex-col">
@@ -26,7 +26,7 @@ export default function CallHistoryPage(){
           </div>
         </div>
       </div>
-      <MobileBottomNav active="home" visible={visible} onNewChat={()=>{}} />
+      <MobileBottomNav active="call-history" visible={visible} onNewChat={()=>{}} />
     </div>
   );
 }

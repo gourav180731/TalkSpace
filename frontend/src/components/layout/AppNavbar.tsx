@@ -4,7 +4,7 @@ import { useNotifications } from "../../context/NotificationContext";
 import ThemeToggle from "../../utils/theme.tsx";
 
 type Props = {
-  active?: "home" | "profile" | "notifications";
+  active?: "home" | "profile" | "notifications" | "call-history";
 };
 
 export default function AppNavbar({
@@ -52,8 +52,8 @@ export default function AppNavbar({
           Home
         </button>
 
-        <button onClick={() => go("/profile")} className={tabClass("profile")}>
-          Profile
+        <button onClick={() => go("/call-history")} className={tabClass("call-history" as any)}>
+          Call History
         </button>
 
         <button

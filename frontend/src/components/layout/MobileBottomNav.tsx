@@ -4,12 +4,12 @@ import {
   Settings,
   Plus,
   Bell,
-  User,
+  Phone,
 } from "lucide-react";
 import { useNotifications } from "../../context/NotificationContext";
 import { useGlobalCall } from "../../context/CallContext";
 
-type NavKey = "home" | "settings" | "notifications" | "profile";
+type NavKey = "home" | "settings" | "notifications" | "call-history" | "profile";
 
 type Props = {
   active: NavKey;
@@ -28,7 +28,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: "home",          icon: MessageCircle, label: "Chats",    route: "/dashboard"  },
   { key: "settings",      icon: Settings,      label: "Settings", route: "/settings"   },
   { key: "notifications", icon: Bell,          label: "Alerts",   route: "/notifications" },
-  { key: "profile",       icon: User,          label: "Profile",  route: "/profile"    },
+  { key: "call-history",  icon: Phone,         label: "Calls",    route: "/call-history" },
 ];
 
 export default function MobileBottomNav({
