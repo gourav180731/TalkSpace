@@ -201,20 +201,6 @@ const scrollToMessage = async (messageId: string) => {
   onCloseChat={()=> onBack?.()}
   onContactInfo={()=> setShowContactInfo(true)}
   onWallpaperChange={setWallpaper}
-  onCallVoice={()=> {
-    if(callSocket.callStatus==="idle"){
-      callSocket.setCallUser(chat);
-      callSocket.setCallType("audio");
-      callSocket.setCallStatus("calling");
-    }
-  }}
-  onCallVideo={()=> {
-    if(callSocket.callStatus==="idle"){
-      callSocket.setCallUser(chat);
-      callSocket.setCallType("video");
-      callSocket.setCallStatus("calling");
-    }
-  }}
   onShowCallHistory={()=> setShowCallHistory(true)}
 />
     {showContactInfo && (

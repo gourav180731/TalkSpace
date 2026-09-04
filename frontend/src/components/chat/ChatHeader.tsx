@@ -1,4 +1,4 @@
-import { ArrowLeft, Users } from "lucide-react";
+import { ArrowLeft, Phone, Video, Users } from "lucide-react";
 import { usePresence } from "../../context/PresenceContext";
 import { useGlobalCall } from "../../context/CallContext";
 import ChatHeaderMenu from "./ChatHeaderMenu";
@@ -62,9 +62,25 @@ export default function ChatHeader({ user, onBack, onSearch, onSelectMode, onClo
         </span>
       </div>
 
-      {/* ACTIONS - All in 3-dot menu per Task 4 */}
-      <div className="ml-auto flex items-center gap-1">
-        <ChatHeaderMenu chat={user} onSearch={onSearch} onSelectMode={onSelectMode} onCloseChat={onCloseChat} onContactInfo={onContactInfo} onWallpaperChange={onWallpaperChange} onCallVoice={()=> { if(callSocket.callStatus==="idle") user.onCall?.("audio"); }} onCallVideo={()=> { if(callSocket.callStatus==="idle") user.onCall?.("video"); }} onShowCallHistory={()=> (window as any).__setShowCallHistory?.(true)} />
+      {/* ACTIONS - Voice/Video directly visible, rest in 3-dot */}
+      <div className="ml-auto flex items-center gap-1 shrink-0">
+        <button
+          onClick={() => { if (callSocket.callStatus === "idle") user.onCall?.("audio"); }}
+          className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-white/10 hover:bg-white/15 border border-white/10 flex items-center justify-center text-white transition shrink-0"
+          title="Voice call"
+          aria-label="Voice call"
+        >
+          <Phone size={16} className="md:w-[18px] md:h-[18px]" />
+        </button>
+        <button
+          onClick={() => { if (callSocket.callStatus === "idle") user.onCall?.("video"); }}
+          className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-white/10 hover:bg-white/15 border border-white/10 flex items-center justify-center text-white transition shrink-0"
+          title="Video call"
+          aria-label="Video call"
+        >
+          <Video size={16} className="md:w-[18px] md:h-[18px]" />
+        </button>
+        <ChatHeaderMenu chat={user} onSearch={onSearch} onSelectMode={onSelectMode} onCloseChat={onCloseChat} onContactInfo={onContactInfo} onWallpaperChange={onWallpaperChange} onShowCallHistory={()=> (window as any).__setShowCallHistory?.(true)} />
       </div>
     </div>
       {isGroup && showGroupInfo && (
