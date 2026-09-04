@@ -23,12 +23,19 @@ export const CallProvider = ({ children }: any) => {
   const [callUser,        setCallUser]        = useState<any>(null);
   const [callType,        setCallType]        = useState<"audio" | "video">("audio");
   const [activeCallUserId,setActiveCallUserId]= useState<string | null>(null);
+  const [currentCallId, setCurrentCallId] = useState<string | null>(null);
   const [missedCallMsg,   setMissedCallMsg]   = useState<string | null>(null);
   const [isMinimized, setIsMinimized] = useState(false);
 
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const localVideoRef  = useRef<HTMLVideoElement | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Persistent media streams – survive minimize/restore (root cause fix for black video)
+  const localStreamRef  = useRef<MediaStream | null>(null);
+  const remoteStreamRef = useRef<MediaStream | null>(null);
+  const peerRef         = useRef<RTCPeerConnection | null>(null);
+  const connectedAtRef  = useRef<number | null>(null);
 
   const callStatusRef  = useRef<CallStatus>("idle");
   const timeoutRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -79,9 +86,13 @@ export const CallProvider = ({ children }: any) => {
   };
 
   useEffect(() => {
-    const onIncoming = ({ from, offer, user, type }: any) => {
+    const onInitiated = ({ callId }: any) => {
+      if(callId) setCurrentCallId(callId);
+    };
+    const onIncoming = ({ from, offer, user, type, callId }: any) => {
       if (callStatusRef.current === "connected") return; // already in a call
-      setIncomingCall({ from, offer, type });
+      setIncomingCall({ from, offer, type, callId });
+      if(callId) setCurrentCallId(callId);
       setCallUser(user);
       setCallStatus("ringing");
       setCallType(type);
@@ -95,6 +106,7 @@ export const CallProvider = ({ children }: any) => {
       setIncomingCall(null);
       setCallUser(null);
       setActiveCallUserId(null);
+      setCurrentCallId(null);
       setIsMinimized(false);
       setMissedCallMsg("User declined the call");
       setTimeout(() => setMissedCallMsg(null), 3000);
@@ -106,6 +118,7 @@ export const CallProvider = ({ children }: any) => {
       setCallStatus("idle");
       setCallUser(null);
       setActiveCallUserId(null);
+      setCurrentCallId(null);
       setIsMinimized(false);
       setMissedCallMsg("User is busy right now");
       setTimeout(() => setMissedCallMsg(null), 4000);
@@ -116,6 +129,7 @@ export const CallProvider = ({ children }: any) => {
       setIncomingCall(null);
       setCallStatus("idle");
       setIsMinimized(false);
+      setCurrentCallId(null);
     };
 
     const onError = (msg:any) => {
@@ -133,9 +147,11 @@ export const CallProvider = ({ children }: any) => {
     };
     const onEnded = () => {
       clearMissedTimer(); stopAllAudio();
-      setCallStatus("idle"); setIncomingCall(null); setCallUser(null); setActiveCallUserId(null); setIsMinimized(false);
+      setCallStatus("idle"); setIncomingCall(null); setCallUser(null); setActiveCallUserId(null); setCurrentCallId(null); setIsMinimized(false);
+      connectedAtRef.current = null;
     };
 
+    socket.on("call-initiated", onInitiated);
     socket.on("incoming-call",  onIncoming);
     socket.on("call-rejected",  onRejected);
     socket.on("call-missed",    onMissed);
@@ -144,6 +160,7 @@ export const CallProvider = ({ children }: any) => {
     socket.on("call-ended",     onEnded);
 
     return () => {
+      socket.off("call-initiated", onInitiated);
       socket.off("incoming-call",  onIncoming);
       socket.off("call-rejected",  onRejected);
       socket.off("call-missed",    onMissed);
@@ -160,8 +177,47 @@ export const CallProvider = ({ children }: any) => {
       stopAllAudio();
       clearMissedTimer();
     }
-    if (callStatus === "idle") setIsMinimized(false);
+    if (callStatus === "connected") {
+      connectedAtRef.current = Date.now();
+    }
+    if (callStatus === "idle") {
+      setIsMinimized(false);
+      connectedAtRef.current = null;
+    }
   }, [callStatus]);
+
+  // Keep video elements in sync whenever streams or minimize toggles
+  const attachStreams = () => {
+    if (localStreamRef.current && localVideoRef.current) {
+      if (localVideoRef.current.srcObject !== localStreamRef.current) {
+        localVideoRef.current.srcObject = localStreamRef.current;
+        localVideoRef.current.muted = true;
+        localVideoRef.current.play().catch(()=>{});
+      }
+    }
+    if (remoteStreamRef.current) {
+      if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== remoteStreamRef.current) {
+        remoteVideoRef.current.srcObject = remoteStreamRef.current;
+        remoteVideoRef.current.muted = false;
+        remoteVideoRef.current.playsInline = true;
+        (remoteVideoRef.current as any).autoplay = true;
+        remoteVideoRef.current.play().catch(()=>{});
+      }
+      if (remoteAudioRef.current && remoteAudioRef.current.srcObject !== remoteStreamRef.current) {
+        remoteAudioRef.current.srcObject = remoteStreamRef.current;
+        remoteAudioRef.current.muted = false;
+        remoteAudioRef.current.play().catch(()=>{});
+      }
+    }
+  };
+
+  useEffect(()=>{ attachStreams(); }, [isMinimized, callStatus, callType]);
+  // also re-attach when refs mount (poll briefly)
+  useEffect(()=>{
+    if(callStatus==="idle") return;
+    const iv=setInterval(attachStreams, 300);
+    return ()=> clearInterval(iv);
+  }, [callStatus, isMinimized]);
 
   const minimizeCall = () => setIsMinimized(true);
   const maximizeCall = () => setIsMinimized(false);
@@ -185,14 +241,36 @@ export const CallProvider = ({ children }: any) => {
     }
   }, [callStatus, isMinimized]);
 
+  // Cleanup only on explicit end, not minimize
+  const cleanupStreams = () => {
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(t=> t.stop());
+      localStreamRef.current = null;
+    }
+    if (remoteStreamRef.current) {
+      // do not stop remote tracks? they will be gc with peer
+      remoteStreamRef.current = null;
+    }
+    if (peerRef.current) {
+      try{ peerRef.current.ontrack=null; (peerRef.current as any).onicecandidate=null; peerRef.current.close(); }catch{}
+      peerRef.current=null;
+    }
+    if (localVideoRef.current) localVideoRef.current.srcObject=null;
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject=null;
+    if (remoteAudioRef.current) remoteAudioRef.current.srcObject=null;
+  };
+
   return (
     <CallContext.Provider value={{
       incomingCall,    setIncomingCall,
       callStatus,      setCallStatus,
       callUser,        setCallUser,
       activeCallUserId,setActiveCallUserId,
+      currentCallId, setCurrentCallId,
       callType,        setCallType,
       remoteVideoRef,  localVideoRef, remoteAudioRef,
+      localStreamRef, remoteStreamRef, peerRef, connectedAtRef,
+      attachStreams, cleanupStreams,
       missedCallMsg,
       isMinimized, setIsMinimized,
       minimizeCall, maximizeCall,

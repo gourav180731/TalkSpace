@@ -8,7 +8,7 @@ import {
   editMessageApi,
 } from "../../apis/chat.api";
 import { deleteGroupMessage, deleteGroupMessageForMe, editGroupMessage } from "../../apis/group.api";
-import { Paperclip, Check, CheckCheck, Clock } from "lucide-react";
+import { Paperclip, Check, CheckCheck, Clock, Phone, PhoneMissed, Video, PhoneOutgoing, PhoneIncoming } from "lucide-react";
 import FilePreview from "./FilePreview";
 
 const EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🔥"];
@@ -31,10 +31,37 @@ function MessageBubble({ msg, onReply, onJump, onDeleteForMe, isGroup, groupId, 
     : msg.senderId?.toString();
   const isMe = senderId === myId;
 
+  const isCallMessage = msg.messageType === "call" || msg.callType;
   const react = async (messageId: string, emoji: string) => {
     try { await messageReactionApi(messageId, emoji); setShowActions(false); }
     catch (err) { console.error("Reaction failed", err); }
   };
+
+  if (isCallMessage) {
+    const ct = msg.callType || "audio";
+    const st = msg.callStatus || "completed";
+    const dur = msg.callDuration;
+    const dir = msg.senderId?.toString?.() === myId ? "outgoing" : "incoming";
+    const formatDur = (s?:number)=>{
+      if(!s || s===0) return st==="completed" ? "0 sec" : st;
+      const m=Math.floor(s/60);
+      if(m>0) return `${m} min${m>1?'s':''}`;
+      return `${s} sec`;
+    };
+    const icon = st==="missed" ? <PhoneMissed size={14} className="text-rose-400"/> : st==="rejected" ? <PhoneMissed size={14} className="text-amber-400"/> : ct==="video" ? <Video size={14} className={ct==="video"?"text-violet-400":"text-emerald-400"}/> : dir==="outgoing" ? <PhoneOutgoing size={14} className="text-emerald-400"/> : <PhoneIncoming size={14} className="text-blue-400"/>;
+    return (
+      <div data-msg-id={msg._id} className={`flex w-full justify-center my-2`}>
+        <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/5 border border-white/10 backdrop-blur max-w-[80%]">
+          <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0">{icon}</div>
+          <div className="min-w-0">
+            <p className="text-white text-xs font-medium flex items-center gap-1.5 capitalize">{ct} call · {st} {dur? `· ${formatDur(dur)}` : ""}</p>
+            <p className="text-white/50 text-[10px]">{msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : ""} · {dir}</p>
+          </div>
+          <Phone size={12} className="text-white/20 shrink-0"/>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

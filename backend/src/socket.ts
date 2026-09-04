@@ -8,7 +8,7 @@ export const onlineUsers = new Map<string, string>();
 const userLastMessage = new Map<string, number>();
 const messageTracker = new Map<string, number[]>();
 const mutedUsers = new Map<string, number>();
-const ongoingCalls = new Map<string, { partnerId: string; startTime?: Date; callType?: string }>();
+const ongoingCalls = new Map<string, { partnerId: string; callId: string; caller: string; receiver: string; startTime: Date; answeredAt?: Date; callType: string }>();
 
 export function initSocket(io: Server) {
   io.use((socket, next) => {
@@ -77,38 +77,42 @@ export function initSocket(io: Server) {
       }
 
       const startTime=new Date();
-      ongoingCalls.set(userId, { partnerId: to, startTime, callType: type || "audio" });
-      ongoingCalls.set(to, { partnerId: userId, startTime, callType: type || "audio" });
-      try{ logCall({ caller: userId, receiver: to, callType: type || "audio", status: "outgoing", startTime }); }catch{}
-
+      const callId = `${userId}_${to}_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
+      const rec = { partnerId: to, callId, caller: userId, receiver: to, startTime, callType: type || "audio" } as any;
+      const rec2= { partnerId: userId, callId, caller: userId, receiver: to, startTime, callType: type || "audio" } as any;
+      ongoingCalls.set(userId, rec);
+      ongoingCalls.set(to, rec2);
+      // Do not create history yet for outgoing (will create on terminal state to avoid duplicate), but keep for missed handling
+      // Emit with callId for end-to-end correlation
       io.to(toSocketId).emit("incoming-call", {
         from: userId,
         offer,
         user,
         type: type || "audio",
+        callId,
       });
+      // also ack caller with callId for later end
+      socket.emit("call-initiated", { to, callId, type: type || "audio" });
     });
 
     socket.on("answer-call", ({ to, answer }) => {
       if (!to || !answer) return;
 
       const now=new Date();
-      if (!ongoingCalls.has(userId)) ongoingCalls.set(userId, { partnerId: to, startTime: now, callType: "audio" });
-      else {
-        const cur=ongoingCalls.get(userId);
-        if(cur && !cur.startTime) cur.startTime=now;
-      }
-      if (!ongoingCalls.has(to)) ongoingCalls.set(to, { partnerId: userId, startTime: now, callType: "audio" });
-      else {
-        const cur2=ongoingCalls.get(to);
-        if(cur2 && !cur2.startTime) cur2.startTime=now;
-      }
+      // mark answeredAt for duration calculation
+      const curA = ongoingCalls.get(userId);
+      const curB = ongoingCalls.get(to);
+      if(curA && !curA.answeredAt) curA.answeredAt = now;
+      if(curB && !curB.answeredAt) curB.answeredAt = now;
+      // fallback create if not exists (e.g. server restart)
+      if (!ongoingCalls.has(userId)) ongoingCalls.set(userId, { partnerId: to, callId: `${to}_${userId}_${Date.now()}`, caller: to, receiver: userId, startTime: now, answeredAt: now, callType: "audio" } as any);
+      if (!ongoingCalls.has(to)) ongoingCalls.set(to, { partnerId: userId, callId: curA?.callId || `${to}_${userId}_${Date.now()}`, caller: curA?.caller || to, receiver: curA?.receiver || userId, startTime: curA?.startTime || now, answeredAt: now, callType: curA?.callType || "audio" } as any);
 
       const toSocketId = onlineUsers.get(to);
       if (toSocketId) {
-        io.to(toSocketId).emit("call-answered", { from: userId, answer });
+        const callId = curA?.callId || curB?.callId;
+        io.to(toSocketId).emit("call-answered", { from: userId, answer, callId });
       }
-      // Update call history to connected (we keep outgoing record, completed will be logged on end)
     });
 
     socket.on("reject-call", ({ to }) => {
@@ -117,30 +121,41 @@ export function initSocket(io: Server) {
         io.to(toSocketId).emit("call-rejected", { from: userId });
       }
       try{
-        const callerInfo=ongoingCalls.get(userId) || ongoingCalls.get(to);
-        const callType=callerInfo?.callType || "audio";
-        const start=callerInfo?.startTime || new Date();
-        logCall({ caller: userId, receiver: to, callType: callType as any, status: "rejected", startTime: start, endTime: new Date(), duration: 0 });
+        const info=ongoingCalls.get(userId) || ongoingCalls.get(to);
+        const callId = info?.callId;
+        const origCaller = info?.caller || to; // to was caller for incoming
+        const origReceiver = info?.receiver || userId;
+        const callType=info?.callType || "audio";
+        const start=info?.startTime || new Date();
+        logCall({ callId, caller: origCaller, receiver: origReceiver, callType: callType as any, status: "rejected", startTime: start, endTime: new Date(), duration: 0 });
       }catch{}
       ongoingCalls.delete(userId);
       ongoingCalls.delete(to);
     });
 
-    socket.on("end-call", ({ to }) => {
+    socket.on("end-call", ({ to, callId: clientCallId }) => {
       const toSocketId = onlineUsers.get(to);
       if (toSocketId) {
-        io.to(toSocketId).emit("call-ended", { from: userId });
+        io.to(toSocketId).emit("call-ended", { from: userId, callId: clientCallId });
       }
       try{
         const info=ongoingCalls.get(userId) || ongoingCalls.get(to);
-        if(info && info.startTime){
-          const dur=Math.floor((Date.now()- new Date(info.startTime).getTime())/1000);
-          const ct=info.callType || "audio";
-          // Determine caller vs receiver for log - use userId as caller if they were in map as caller
-          const caller=userId;
-          const receiver=to;
-          logCall({ caller, receiver, callType: ct as any, status: "completed", startTime: info.startTime, endTime: new Date(), duration: dur });
+        const cid = info?.callId || clientCallId;
+        // Use original caller/receiver for consistent history direction
+        const caller = info?.caller || userId;
+        const receiver = info?.receiver || to;
+        const ct=info?.callType || "audio";
+        const st=info?.startTime || new Date();
+        const ans=info?.answeredAt;
+        // Only create completed if call was answered, else cancelled
+        let status: any = ans ? "completed" : "cancelled";
+        let dur = 0;
+        if(ans){
+          dur = Math.max(0, Math.floor((Date.now() - ans.getTime())/1000));
+          // ensure at least 1 sec for very short completed call
+          if(dur===0) dur = 1;
         }
+        logCall({ callId: cid, caller, receiver, callType: ct as any, status, startTime: st, answeredAt: ans, endTime: new Date(), duration: dur });
       }catch{}
       ongoingCalls.delete(userId);
       ongoingCalls.delete(to);
@@ -155,9 +170,14 @@ export function initSocket(io: Server) {
       }
       try{
         const info=ongoingCalls.get(userId) || ongoingCalls.get(to);
+        // Only mark missed if never answered
+        if(info?.answeredAt) return;
+        const cid=info?.callId;
+        const caller=info?.caller || userId;
+        const receiver=info?.receiver || to;
         const ct=info?.callType || "audio";
         const st=info?.startTime || new Date();
-        logCall({ caller: userId, receiver: to, callType: ct as any, status: "missed", startTime: st, endTime: new Date(), duration: 0 });
+        logCall({ callId: cid, caller, receiver, callType: ct as any, status: "missed", startTime: st, endTime: new Date(), duration: 0 });
       }catch{}
       ongoingCalls.delete(userId);
       ongoingCalls.delete(to);
@@ -227,10 +247,17 @@ export function initSocket(io: Server) {
         const partnerId = partnerInfo.partnerId;
         const partnerSocket = onlineUsers.get(partnerId);
         if (partnerSocket) {
-          io.to(partnerSocket).emit("call-ended", { from: userId });
+          io.to(partnerSocket).emit("call-ended", { from: userId, callId: partnerInfo.callId });
         }
         try{
-          logCall({ caller: userId, receiver: partnerId, callType: (partnerInfo.callType as any) || "audio", status: "cancelled", startTime: partnerInfo.startTime, endTime: new Date(), duration: 0 });
+          // If already answered, treat as completed with duration up to disconnect
+          const ans = partnerInfo.answeredAt;
+          const caller = partnerInfo.caller || userId;
+          const receiver = partnerInfo.receiver || partnerId;
+          let status: any = ans ? "completed" : "cancelled";
+          let dur = 0;
+          if(ans) dur = Math.max(0, Math.floor((Date.now() - ans.getTime())/1000)) || 1;
+          logCall({ callId: partnerInfo.callId, caller, receiver, callType: (partnerInfo.callType as any) || "audio", status, startTime: partnerInfo.startTime, answeredAt: ans, endTime: new Date(), duration: dur });
         }catch{}
         ongoingCalls.delete(userId);
         ongoingCalls.delete(partnerId);

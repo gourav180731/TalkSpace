@@ -24,6 +24,12 @@ export interface IMessage extends Document {
   editedAt?: Date;
   editHistory: Array<{ originalText: string; editedAt: Date }>;
   expiresAt?: Date;
+  // Call footprint (structured)
+  messageType?: "text" | "call";
+  callId?: string;
+  callType?: "audio" | "video";
+  callStatus?: "missed" | "rejected" | "completed" | "cancelled" | "incoming" | "outgoing";
+  callDuration?: number;
 }
 
 
@@ -74,20 +80,25 @@ reactions: [
     },
   },
   ],
-status: {
+ status: {
   type: String,
   enum: ["sending", "sent", "delivered", "read", "failed"],
   default: "sent",
 },
-isEdited: { type: Boolean, default: false },
-editedAt: { type: Date },
-editHistory: [
+ isEdited: { type: Boolean, default: false },
+ editedAt: { type: Date },
+ editHistory: [
   {
     originalText: { type: String },
     editedAt: { type: Date },
   },
-],
-expiresAt: { type: Date, index: true },
+ ],
+ expiresAt: { type: Date, index: true },
+ messageType: { type: String, enum: ["text","call"], default: "text", index: true },
+ callId: { type: String, index: true },
+ callType: { type: String, enum: ["audio","video"] },
+ callStatus: { type: String, enum: ["missed","rejected","completed","cancelled","incoming","outgoing"] },
+ callDuration: { type: Number },
 
 }, { timestamps: true },
 

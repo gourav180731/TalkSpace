@@ -256,31 +256,45 @@ export default function CallWindow() {
     }
   }, [callSocket.callStatus]);
 
-  // Re-attach streams when call becomes active (handles ref mount race)
+  // Re-attach streams when call becomes active or minimized state changes (handles ref mount race - fixes black video)
   useEffect(() => {
     if (isActive) {
       const tryAttach = () => {
-        if ((call as any).localStreamRef?.current && localVideoRef.current && !localVideoRef.current.srcObject) {
-          localVideoRef.current.srcObject = (call as any).localStreamRef.current;
-          localVideoRef.current.play().catch(()=>{});
+        // Use context persistent streams for reliable re-attach
+        const local = (callSocket as any).localStreamRef?.current || (call as any).localStreamRef?.current;
+        const remote = (callSocket as any).remoteStreamRef?.current || (call as any).remoteStreamRef?.current;
+        if (local && localVideoRef.current) {
+          if (localVideoRef.current.srcObject !== local) {
+            localVideoRef.current.srcObject = local;
+            localVideoRef.current.muted = true;
+            localVideoRef.current.playsInline = true;
+            localVideoRef.current.play().catch(()=>{});
+          }
         }
-        if ((call as any).remoteStreamRef?.current) {
-          if (remoteVideoRef.current && !remoteVideoRef.current.srcObject) {
-            remoteVideoRef.current.srcObject = (call as any).remoteStreamRef.current;
+        if (remote) {
+          if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== remote) {
+            remoteVideoRef.current.srcObject = remote;
+            remoteVideoRef.current.muted = false;
+            remoteVideoRef.current.playsInline = true;
+            (remoteVideoRef.current as any).autoplay = true;
             remoteVideoRef.current.play().catch(()=>{});
           }
-          if (remoteAudioRef.current && !remoteAudioRef.current.srcObject) {
-            remoteAudioRef.current.srcObject = (call as any).remoteStreamRef.current;
+          if (remoteAudioRef.current && remoteAudioRef.current.srcObject !== remote) {
+            remoteAudioRef.current.srcObject = remote;
+            remoteAudioRef.current.muted = false;
             remoteAudioRef.current.play().catch(()=>{});
           }
         }
+        // also trigger context helper
+        (callSocket as any).attachStreams?.();
       };
       tryAttach();
-      const t=setTimeout(tryAttach, 300);
-      const t2=setTimeout(tryAttach, 800);
-      return ()=>{ clearTimeout(t); clearTimeout(t2); };
+      const t=setTimeout(tryAttach, 100);
+      const t2=setTimeout(tryAttach, 300);
+      const t3=setTimeout(tryAttach, 800);
+      return ()=>{ clearTimeout(t); clearTimeout(t2); clearTimeout(t3); };
     }
-  }, [isActive, isVideo]);
+  }, [isActive, isVideo, callSocket.isMinimized]);
 
   const fmt = (s: number) =>
     `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -400,9 +414,33 @@ export default function CallWindow() {
    Active Call Window
 ───────────────────────────────────────── */
 function MinimizedCallBubble({isVideo,isConnected,remoteName,remoteAvatar,seconds,fmt,isMuted,onEnd,onMaximize,localVideoRef,remoteVideoRef}:any){
+  const { localStreamRef: ctxLocal, remoteStreamRef: ctxRemote, attachStreams } = useGlobalCall() as any;
   const [pos,setPos]=useState({x: typeof window!=='undefined'? window.innerWidth-160: 0, y: typeof window!=='undefined'? window.innerHeight-140: 0});
   const draggingRef=useRef(false);
   const offsetRef=useRef({x:0,y:0});
+  // Ensure live video appears immediately after minimize (fix black video)
+  useEffect(()=>{
+    if(isVideo){
+      const tryAttach=()=>{
+        if(ctxRemote?.current && remoteVideoRef?.current && remoteVideoRef.current.srcObject !== ctxRemote.current){
+          remoteVideoRef.current.srcObject = ctxRemote.current;
+          remoteVideoRef.current.muted = false;
+          remoteVideoRef.current.playsInline = true;
+          remoteVideoRef.current.play().catch(()=>{});
+        }
+        if(ctxLocal?.current && localVideoRef?.current && localVideoRef.current.srcObject !== ctxLocal.current){
+          localVideoRef.current.srcObject = ctxLocal.current;
+          localVideoRef.current.muted = true;
+          localVideoRef.current.play().catch(()=>{});
+        }
+        attachStreams?.();
+      };
+      tryAttach();
+      const t1=setTimeout(tryAttach, 50);
+      const t2=setTimeout(tryAttach, 250);
+      return ()=>{ clearTimeout(t1); clearTimeout(t2); };
+    }
+  },[isVideo, ctxLocal, ctxRemote, remoteVideoRef, localVideoRef, attachStreams]);
   const onPointerDown=(e:any)=>{
     draggingRef.current=true;
     const rect=e.currentTarget.getBoundingClientRect();

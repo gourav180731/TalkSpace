@@ -3,12 +3,13 @@ import { socket } from "../../../apis/socket";
 import { useGlobalCall } from "../../../context/CallContext";
 
 export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef: any) {
-  const peerRef = useRef<RTCPeerConnection | null>(null);
-  const localStreamRef = useRef<MediaStream | null>(null);
-  const remoteStreamRef = useRef<MediaStream | null>(null);
+  const ctx = useGlobalCall();
+  const peerRef = ctx.peerRef as React.MutableRefObject<RTCPeerConnection|null>;
+  const localStreamRef = ctx.localStreamRef as React.MutableRefObject<MediaStream|null>;
+  const remoteStreamRef = ctx.remoteStreamRef as React.MutableRefObject<MediaStream|null>;
 
-  const { setActiveCallUserId, activeCallUserId } = useGlobalCall();
-  const callSocket = useGlobalCall();
+  const { setActiveCallUserId, activeCallUserId } = ctx;
+  const callSocket = ctx;
 
   const callerIceQueueRef = useRef<any[]>([]);
   const receiverIceQueueRef = useRef<any[]>([]);
@@ -327,14 +328,17 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
 
   // END CALL
   const endCall = () => {
-    if (!peerRef.current) return;
-
-
+    // allow end even if peer not yet connected (for cancelled)
+    const cid = (callSocket as any).currentCallId;
     if (activeCallUserId) {
-      socket.emit("end-call", { to: activeCallUserId });
+      socket.emit("end-call", { to: activeCallUserId, callId: cid });
+    } else if(cid){
+      // fallback broadcast end to peer if activeCallUserId missing but we have callId
+      socket.emit("end-call", { to: (callSocket as any).callUser?._id, callId: cid });
     }
 
     cleanup();
+    if((callSocket as any).setCurrentCallId) (callSocket as any).setCurrentCallId(null);
 
     callSocket.setCallStatus("idle");
     callSocket.setIncomingCall(null);
