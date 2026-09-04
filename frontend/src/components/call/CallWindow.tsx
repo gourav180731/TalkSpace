@@ -415,9 +415,21 @@ export default function CallWindow() {
 ───────────────────────────────────────── */
 function MinimizedCallBubble({isVideo,isConnected,remoteName,remoteAvatar,seconds,fmt,isMuted,onEnd,onMaximize,localVideoRef,remoteVideoRef}:any){
   const { localStreamRef: ctxLocal, remoteStreamRef: ctxRemote, attachStreams } = useGlobalCall() as any;
-  const [pos,setPos]=useState({x: typeof window!=='undefined'? window.innerWidth-160: 0, y: typeof window!=='undefined'? window.innerHeight-140: 0});
+  const W = 148;
+  const H = isVideo ? 112 : 96;
+  const MARGIN = 8;
+  const BOTTOM_OFFSET = 88; // space for composer + bottom nav + safe-area
+  const [pos,setPos]=useState({x: 0, y: 0});
+  const [snapping,setSnapping]=useState(false);
   const draggingRef=useRef(false);
-  const offsetRef=useRef({x:0,y:0});
+  const hasDraggedRef=useRef(false);
+  const startPtrRef=useRef({x:0,y:0});
+  const startPosRef=useRef({x:0,y:0});
+  // Initial position bottom-right
+  useEffect(()=>{
+    if(typeof window==='undefined') return;
+    setPos({ x: window.innerWidth - W - MARGIN, y: window.innerHeight - H - BOTTOM_OFFSET });
+  },[]);
   // Ensure live video appears immediately after minimize (fix black video)
   useEffect(()=>{
     if(isVideo){
@@ -426,11 +438,13 @@ function MinimizedCallBubble({isVideo,isConnected,remoteName,remoteAvatar,second
           remoteVideoRef.current.srcObject = ctxRemote.current;
           remoteVideoRef.current.muted = false;
           remoteVideoRef.current.playsInline = true;
+          (remoteVideoRef.current as any).autoplay = true;
           remoteVideoRef.current.play().catch(()=>{});
         }
         if(ctxLocal?.current && localVideoRef?.current && localVideoRef.current.srcObject !== ctxLocal.current){
           localVideoRef.current.srcObject = ctxLocal.current;
           localVideoRef.current.muted = true;
+          localVideoRef.current.playsInline = true;
           localVideoRef.current.play().catch(()=>{});
         }
         attachStreams?.();
@@ -441,35 +455,83 @@ function MinimizedCallBubble({isVideo,isConnected,remoteName,remoteAvatar,second
       return ()=>{ clearTimeout(t1); clearTimeout(t2); };
     }
   },[isVideo, ctxLocal, ctxRemote, remoteVideoRef, localVideoRef, attachStreams]);
+
+  const clamp = (x:number, y:number)=>{
+    const maxX = (typeof window!=='undefined'? window.innerWidth: 400) - W - MARGIN;
+    const maxY = (typeof window!=='undefined'? window.innerHeight: 800) - H - 16;
+    const minY = MARGIN + (typeof window!=='undefined' ? 0 : 0);
+    return { x: Math.max(MARGIN, Math.min(x, maxX)), y: Math.max(minY, Math.min(y, maxY)) };
+  };
+  const snapToCorner = (x:number, y:number)=>{
+    if(typeof window==='undefined') return {x,y};
+    const corners = [
+      {x: MARGIN, y: MARGIN},
+      {x: window.innerWidth - W - MARGIN, y: MARGIN},
+      {x: MARGIN, y: window.innerHeight - H - BOTTOM_OFFSET},
+      {x: window.innerWidth - W - MARGIN, y: window.innerHeight - H - BOTTOM_OFFSET},
+    ];
+    let best=corners[0], dist=Infinity;
+    for(const c of corners){
+      const d = Math.hypot(c.x - x, c.y - y);
+      if(d<dist){ dist=d; best=c; }
+    }
+    return best;
+  };
+
   const onPointerDown=(e:any)=>{
+    // Do not drag when clicking buttons
+    if((e.target as HTMLElement).closest('button')) return;
+    const point = e.touches ? e.touches[0] : e;
     draggingRef.current=true;
-    const rect=e.currentTarget.getBoundingClientRect();
-    offsetRef.current={x:e.clientX-rect.left, y:e.clientY-rect.top};
+    hasDraggedRef.current=false;
+    setSnapping(false);
+    startPtrRef.current={x: point.clientX, y: point.clientY};
+    startPosRef.current={...pos};
+    // Prevent scroll on touch
+    if(e.cancelable) e.preventDefault();
     const move=(ev:any)=>{
       if(!draggingRef.current) return;
-      setPos({x: ev.clientX - offsetRef.current.x, y: ev.clientY - offsetRef.current.y});
+      const p = ev.touches ? ev.touches[0] : ev;
+      const dx = p.clientX - startPtrRef.current.x;
+      const dy = p.clientY - startPtrRef.current.y;
+      if(Math.hypot(dx,dy) > 4) hasDraggedRef.current=true;
+      const nx = startPosRef.current.x + dx;
+      const ny = startPosRef.current.y + dy;
+      setPos(clamp(nx, ny));
+      if(ev.cancelable) ev.preventDefault();
     };
     const up=()=>{
       draggingRef.current=false;
-      window.removeEventListener("mousemove", move);
-      window.removeEventListener("mouseup", up);
-      window.removeEventListener("touchmove", move);
-      window.removeEventListener("touchend", up);
+      window.removeEventListener("mousemove", move as any);
+      window.removeEventListener("mouseup", up as any);
+      window.removeEventListener("touchmove", move as any);
+      window.removeEventListener("touchend", up as any);
+      // snap to nearest corner if dragged
+      if(hasDraggedRef.current){
+        setSnapping(true);
+        setPos(prev=> snapToCorner(prev.x, prev.y));
+        setTimeout(()=> setSnapping(false), 280);
+      }
     };
-    window.addEventListener("mousemove", move);
-    window.addEventListener("mouseup", up);
-    window.addEventListener("touchmove", move);
-    window.addEventListener("touchend", up);
+    window.addEventListener("mousemove", move as any, {passive:false});
+    window.addEventListener("mouseup", up as any);
+    window.addEventListener("touchmove", move as any, {passive:false});
+    window.addEventListener("touchend", up as any);
+  };
+  const onClickContainer=()=>{
+    if(hasDraggedRef.current){ hasDraggedRef.current=false; return; }
+    onMaximize();
   };
   return (
-    <div onMouseDown={onPointerDown} onTouchStart={onPointerDown}
-      onClick={onMaximize}
+    <div
+      onMouseDown={onPointerDown} onTouchStart={onPointerDown}
+      onClick={onClickContainer}
       style={{
         position:"fixed",
-        left: Math.max(8, Math.min(pos.x, (typeof window!=='undefined'? window.innerWidth:400)-140)),
-        top: Math.max(8, Math.min(pos.y, (typeof window!=='undefined'? window.innerHeight:800)-100)),
+        left: pos.x,
+        top: pos.y,
         zIndex:1000,
-        width:140, height: isVideo? 100: 90,
+        width: W, height: H,
         borderRadius:16,
         overflow:"hidden",
         background:"linear-gradient(135deg,#1c1511,#0f1d1a)",
@@ -478,8 +540,14 @@ function MinimizedCallBubble({isVideo,isConnected,remoteName,remoteAvatar,second
         display:"flex",
         flexDirection:"column",
         cursor:"grab",
-        touchAction:"none"
+        touchAction:"none",
+        transition: snapping ? "left 0.24s ease, top 0.24s ease" : undefined,
+        userSelect:"none",
       }}>
+      {/* Drag handle hint */}
+      <div style={{height:14, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(255,255,255,0.06)", flexShrink:0}}>
+        <span style={{width:22, height:3, borderRadius:99, background:"rgba(255,255,255,0.35)"}}/>
+      </div>
       <div style={{flex:1, position:"relative", overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center"}}>
         {isVideo ? (
           <>
@@ -498,8 +566,8 @@ function MinimizedCallBubble({isVideo,isConnected,remoteName,remoteAvatar,second
         {isMuted && <span style={{position:"absolute", top:4, left:4, background:"rgba(239,68,68,0.9)", color:"#fff", fontSize:8, padding:"2px 4px", borderRadius:6}}>🔇</span>}
       </div>
       <div style={{display:"flex", gap:4, padding:4, background:"rgba(0,0,0,0.4)", justifyContent:"space-between"}}>
-        <button onClick={(e)=>{e.stopPropagation(); onMaximize();}} style={{flex:1, background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.1)", color:"#fff", fontSize:10, borderRadius:8, padding:"4px"}}>↗</button>
-        <button onClick={(e)=>{e.stopPropagation(); onEnd();}} style={{flex:1, background:"#ef4444", border:"none", color:"#fff", fontSize:10, borderRadius:8, padding:"4px"}}>✕</button>
+        <button onClick={(e)=>{e.stopPropagation(); onMaximize();}} style={{flex:1, background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.1)", color:"#fff", fontSize:10, borderRadius:8, padding:"4px"}}>↗ Restore</button>
+        <button onClick={(e)=>{e.stopPropagation(); onEnd();}} style={{flex:1, background:"#ef4444", border:"none", color:"#fff", fontSize:10, borderRadius:8, padding:"4px"}}>✕ End</button>
       </div>
     </div>
   );
