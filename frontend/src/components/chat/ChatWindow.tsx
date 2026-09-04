@@ -201,6 +201,21 @@ const scrollToMessage = async (messageId: string) => {
   onCloseChat={()=> onBack?.()}
   onContactInfo={()=> setShowContactInfo(true)}
   onWallpaperChange={setWallpaper}
+  onCallVoice={()=> {
+    if(callSocket.callStatus==="idle"){
+      callSocket.setCallUser(chat);
+      callSocket.setCallType("audio");
+      callSocket.setCallStatus("calling");
+    }
+  }}
+  onCallVideo={()=> {
+    if(callSocket.callStatus==="idle"){
+      callSocket.setCallUser(chat);
+      callSocket.setCallType("video");
+      callSocket.setCallStatus("calling");
+    }
+  }}
+  onShowCallHistory={()=> setShowCallHistory(true)}
 />
     {showContactInfo && (
       <div className="absolute inset-0 z-40 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={()=> setShowContactInfo(false)}>
@@ -229,17 +244,6 @@ const scrollToMessage = async (messageId: string) => {
         </div>
       </div>
     )}
-    <div className="flex gap-2 px-2 py-1 bg-white/5 border-b border-white/10">
-      <button onClick={()=> setShowSearch(!showSearch)} className={`px-3 py-1 text-xs rounded-full border ${showSearch ? "bg-indigo-600 border-indigo-500 text-white" : "bg-white/10 border-white/10 text-white/70"}`}>🔍 Search</button>
-      <button onClick={()=> setShowCallHistory(!showCallHistory)} className={`px-3 py-1 text-xs rounded-full border ${showCallHistory ? "bg-indigo-600 border-indigo-500 text-white" : "bg-white/10 border-white/10 text-white/70"}`}>📞 Calls</button>
-      <button onClick={async()=>{
-        const { setChatWallpaper } = await import("../../apis/settings.api");
-        const presets=["#1a1d2e","#121520","linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)","linear-gradient(135deg, #0b0d12 0%, #121520 100%)"];
-        const p=presets[Math.floor(Math.random()*presets.length)];
-        const fd=new FormData(); fd.append("wallpaper", JSON.stringify({type:"preset", value:p}));
-        try{ await setChatWallpaper(chat._id, fd); setWallpaper(p); }catch{}
-      }} className="px-3 py-1 text-xs rounded-full bg-white/5 border border-white/10 text-white/60">Wallpaper</button>
-    </div>
     {showCallHistory && !isGroup && (
       <div className="p-2 bg-[#0b0d12]/50 border-b border-white/10 max-h-64 overflow-auto">
         <div className="flex items-center justify-between mb-2">

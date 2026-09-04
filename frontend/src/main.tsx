@@ -13,9 +13,9 @@ import { CallProvider } from "./context/CallContext";
 import { GroupProvider } from "./context/GroupContext";
 import { StatusProvider } from "./context/StatusContext";
 import { SettingsProvider } from "./context/SettingsContext";
-import { getTheme, setTheme } from "./utils/theme";
+import { getStoredTheme, applyTheme } from "./utils/theme";
 
-setTheme(getTheme());
+applyTheme(getStoredTheme());
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

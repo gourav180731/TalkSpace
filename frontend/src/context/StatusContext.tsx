@@ -6,10 +6,27 @@ export const StatusProvider:React.FC<{children:React.ReactNode}> = ({children})=
   const [friendsStatuses,setFriendsStatuses]=useState<any[]>([]); const [myStatuses,setMyStatuses]=useState<any[]>([]); const [loading,setLoading]=useState(false);
   const fetchFriends=async()=>{ setLoading(true); try{ const r=await api.getFriendsStatuses(); setFriendsStatuses(r.data.statuses||[]);}catch{} finally{setLoading(false);} };
   const fetchMine=async()=>{ try{ const r=await api.getMyStatuses(); setMyStatuses(r.data.statuses||[]);}catch{} };
-  useEffect(()=>{ fetchFriends(); fetchMine(); const onPosted=()=> fetchFriends(); const onViewed=(d:any)=> setMyStatuses(prev=> prev.map(s=> s._id===d.statusId? {...s, viewers:[...s.viewers,{userId:d.viewerId, viewedAt:new Date()}]}:s)); const onConnect=()=>{ fetchFriends(); fetchMine(); }; socket.on("status-posted",onPosted); socket.on("status-viewed",onViewed); socket.on("connect", onConnect); return()=>{ socket.off("status-posted",onPosted); socket.off("status-viewed",onViewed); socket.off("connect", onConnect); }; },[]);
+  useEffect(()=>{
+    fetchFriends(); fetchMine();
+    const onPosted=()=> fetchFriends();
+    const onViewed=(d:any)=>{
+      setMyStatuses(prev=> prev.map(s=> s._id===d.statusId? {...s, viewers:[...s.viewers,{userId:d.viewerId, viewedAt:new Date()}]}:s));
+      setFriendsStatuses(prev=> prev.map(s=> s._id===d.statusId? {...s, viewers:[...s.viewers,{userId:d.viewerId, viewedAt:new Date()}]}:s));
+    };
+    const onDeleted=(d:any)=>{
+      const sid=d.statusId?.toString()||d.statusId;
+      setMyStatuses(prev=> prev.filter(s=> s._id?.toString()!==sid && s._id!==sid));
+      setFriendsStatuses(prev=> prev.filter(s=> s._id?.toString()!==sid && s._id!==sid));
+    };
+    const onConnect=()=>{ fetchFriends(); fetchMine(); };
+    const onWindowDeleted=(e:any)=>{ const sid=e.detail?.toString()||e.detail; setMyStatuses(prev=> prev.filter(s=> s._id?.toString()!==sid)); setFriendsStatuses(prev=> prev.filter(s=> s._id?.toString()!==sid)); };
+    socket.on("status-posted",onPosted); socket.on("status-viewed",onViewed); socket.on("status-deleted",onDeleted); socket.on("connect", onConnect);
+    window.addEventListener("status-deleted" as any, onWindowDeleted as any);
+    return()=>{ socket.off("status-posted",onPosted); socket.off("status-viewed",onViewed); socket.off("status-deleted",onDeleted); socket.off("connect", onConnect); window.removeEventListener("status-deleted" as any, onWindowDeleted as any); };
+  },[]);
   const createStatus=async(d:FormData)=>{ const r=await api.createStatus(d); setMyStatuses(p=> [r.data.status,...p]); };
   const viewStatus=async(id:string)=>{ await api.viewStatus(id); };
-  const deleteStatus=async(id:string)=>{ await api.deleteStatus(id); setMyStatuses(p=> p.filter(s=> s._id!==id)); };
+  const deleteStatus=async(id:string)=>{ await api.deleteStatus(id); setMyStatuses(p=> p.filter(s=> s._id!==id)); setFriendsStatuses(p=> p.filter(s=> s._id!==id)); };
   return <Ctx.Provider value={{friendsStatuses, myStatuses, loading, fetchFriends, fetchMine, createStatus, viewStatus, deleteStatus}}>{children}</Ctx.Provider>;
 };
 export const useStatus=()=> useContext(Ctx);

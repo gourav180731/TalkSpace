@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { socket } from "../../apis/socket";
 import { useGlobalCall } from "../../context/CallContext";
 import { useAuth } from "../../context/AuthContext";
@@ -351,10 +351,27 @@ export default function CallWindow() {
           </>
         )}
 
+        {/* ── MINIMIZED FLOATING CALL ── */}
+        {isActive && callSocket.isMinimized && (
+          <MinimizedCallBubble
+            isVideo={isVideo}
+            isConnected={isConnected}
+            remoteName={remoteName}
+            remoteAvatar={remoteAvatar}
+            seconds={seconds}
+            fmt={fmt}
+            isMuted={isMuted}
+            onEnd={handleEnd}
+            onMaximize={()=> callSocket.maximizeCall()}
+            localVideoRef={localVideoRef}
+            remoteVideoRef={remoteVideoRef}
+          />
+        )}
+
         {/* ── ACTIVE CALL ── */}
-        {isActive && (
+        {isActive && !callSocket.isMinimized && (
           <>
-            <div className="cw-backdrop" />
+            <div className="cw-backdrop" onClick={()=> callSocket.minimizeCall()} />
             <ActiveCallWindow
               isVideo={isVideo}
               isConnected={isConnected}
@@ -367,6 +384,7 @@ export default function CallWindow() {
               onMute={handleMute}
               onSpeaker={handleSpeaker}
               onEnd={handleEnd}
+              onMinimize={()=> callSocket.minimizeCall()}
               onFlip={() => call.switchCamera()}
               remoteVideoRef={remoteVideoRef}
               localVideoRef={localVideoRef}
@@ -381,10 +399,78 @@ export default function CallWindow() {
 /* ─────────────────────────────────────────
    Active Call Window
 ───────────────────────────────────────── */
+function MinimizedCallBubble({isVideo,isConnected,remoteName,remoteAvatar,seconds,fmt,isMuted,onEnd,onMaximize,localVideoRef,remoteVideoRef}:any){
+  const [pos,setPos]=useState({x: typeof window!=='undefined'? window.innerWidth-160: 0, y: typeof window!=='undefined'? window.innerHeight-140: 0});
+  const draggingRef=useRef(false);
+  const offsetRef=useRef({x:0,y:0});
+  const onPointerDown=(e:any)=>{
+    draggingRef.current=true;
+    const rect=e.currentTarget.getBoundingClientRect();
+    offsetRef.current={x:e.clientX-rect.left, y:e.clientY-rect.top};
+    const move=(ev:any)=>{
+      if(!draggingRef.current) return;
+      setPos({x: ev.clientX - offsetRef.current.x, y: ev.clientY - offsetRef.current.y});
+    };
+    const up=()=>{
+      draggingRef.current=false;
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      window.removeEventListener("touchmove", move);
+      window.removeEventListener("touchend", up);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    window.addEventListener("touchmove", move);
+    window.addEventListener("touchend", up);
+  };
+  return (
+    <div onMouseDown={onPointerDown} onTouchStart={onPointerDown}
+      onClick={onMaximize}
+      style={{
+        position:"fixed",
+        left: Math.max(8, Math.min(pos.x, (typeof window!=='undefined'? window.innerWidth:400)-140)),
+        top: Math.max(8, Math.min(pos.y, (typeof window!=='undefined'? window.innerHeight:800)-100)),
+        zIndex:1000,
+        width:140, height: isVideo? 100: 90,
+        borderRadius:16,
+        overflow:"hidden",
+        background:"linear-gradient(135deg,#1c1511,#0f1d1a)",
+        border:"1px solid rgba(255,255,255,0.15)",
+        boxShadow:"0 10px 30px rgba(0,0,0,0.5)",
+        display:"flex",
+        flexDirection:"column",
+        cursor:"grab",
+        touchAction:"none"
+      }}>
+      <div style={{flex:1, position:"relative", overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center"}}>
+        {isVideo ? (
+          <>
+            <video ref={remoteVideoRef} autoPlay playsInline muted={false} style={{position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover"}} />
+            <video ref={localVideoRef} autoPlay muted playsInline style={{position:"absolute", bottom:4, right:4, width:36, height:48, objectFit:"cover", borderRadius:6, border:"1px solid rgba(255,255,255,0.3)"}} />
+          </>
+        ) : (
+          <div style={{display:"flex", alignItems:"center", gap:8, padding:8}}>
+            <img src={remoteAvatar} style={{width:32, height:32, borderRadius:"50%", objectFit:"cover", border:"2px solid rgba(255,255,255,0.2)"}} alt={remoteName}/>
+            <div style={{flex:1, minWidth:0}}>
+              <div style={{color:"#fff", fontSize:11, fontWeight:600, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}>{remoteName}</div>
+              <div style={{color:isConnected?"#4ade80":"rgba(255,255,255,0.6)", fontSize:9, display:"flex", alignItems:"center", gap:4}}><span style={{width:6,height:6,borderRadius:"50%", background:isConnected?"#22c55e":"#f59e0b", display:"inline-block"}}/> {isConnected? fmt(seconds): "Calling…"}</div>
+            </div>
+          </div>
+        )}
+        {isMuted && <span style={{position:"absolute", top:4, left:4, background:"rgba(239,68,68,0.9)", color:"#fff", fontSize:8, padding:"2px 4px", borderRadius:6}}>🔇</span>}
+      </div>
+      <div style={{display:"flex", gap:4, padding:4, background:"rgba(0,0,0,0.4)", justifyContent:"space-between"}}>
+        <button onClick={(e)=>{e.stopPropagation(); onMaximize();}} style={{flex:1, background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.1)", color:"#fff", fontSize:10, borderRadius:8, padding:"4px"}}>↗</button>
+        <button onClick={(e)=>{e.stopPropagation(); onEnd();}} style={{flex:1, background:"#ef4444", border:"none", color:"#fff", fontSize:10, borderRadius:8, padding:"4px"}}>✕</button>
+      </div>
+    </div>
+  );
+}
+
 function ActiveCallWindow({
   isVideo, isConnected, remoteName, remoteAvatar,
   seconds, fmt, isMuted, isSpeakerMuted,
-  onMute, onSpeaker, onEnd, onFlip,
+  onMute, onSpeaker, onEnd, onMinimize, onFlip,
   remoteVideoRef, localVideoRef,
 }: any) {
   return (
@@ -422,6 +508,7 @@ function ActiveCallWindow({
         } : { display: "none" }}
       />
 
+      <button onClick={onMinimize} style={{position:"absolute", top:10, left:14, zIndex:5, background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.15)", color:"#fff", padding:"6px 10px", borderRadius:99, fontSize:11, cursor:"pointer"}}>— Minimize</button>
       {/* Main content area */}
       <div style={{
         flex: 1,

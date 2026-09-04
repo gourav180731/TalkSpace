@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { Info, Search, CheckSquare, BellOff, Clock, Lock, Heart, Download, X, Link2, Calendar, Users, Flag, Ban, Trash2, ChevronRight, Image as ImageIcon, Palette } from "lucide-react";
+import { Info, Search, CheckSquare, BellOff, Clock, Lock, Heart, Download, X, Link2, Calendar, Users, Flag, Ban, Trash2, ChevronRight, Image as ImageIcon, Palette, Phone, Video } from "lucide-react";
 import { muteChat, unmuteChat } from "../../apis/chatManagement.api";
 import { axiosInstance } from "../../apis/axios";
 import { setChatWallpaper } from "../../apis/settings.api";
 
-export default function ChatHeaderMenu({ chat, onSearch, onSelectMode, onCloseChat, onContactInfo, onWallpaperChange }: any) {
+export default function ChatHeaderMenu({ chat, onSearch, onSelectMode, onCloseChat, onContactInfo, onWallpaperChange, onCallVoice, onCallVideo, onShowCallHistory }: any) {
   const [open, setOpen] = useState(false);
   const [showMuteSub, setShowMuteSub] = useState(false);
   const [showWallpaperSub, setShowWallpaperSub] = useState(false);
@@ -99,6 +99,9 @@ export default function ChatHeaderMenu({ chat, onSearch, onSelectMode, onCloseCh
         <div className="absolute right-0 top-full mt-2 w-64 bg-[#111b21] border border-white/15 backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.6)] rounded-xl py-2 z-50 max-h-[80vh] overflow-y-auto" onClick={e=>e.stopPropagation()}>
           <button onClick={()=>{ onContactInfo?.(); setOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-white text-sm"><Info size={18} className="opacity-70"/> Contact info</button>
           <button onClick={()=>{ onSearch?.(); setOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-white text-sm"><Search size={18} className="opacity-70"/> Search</button>
+          <button onClick={()=>{ onCallVoice?.(); setOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-white text-sm"><Phone size={18} className="opacity-70"/> Voice call</button>
+          <button onClick={()=>{ onCallVideo?.(); setOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-white text-sm"><Video size={18} className="opacity-70"/> Video call</button>
+          <button onClick={()=>{ onShowCallHistory?.(); setOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-white text-sm"><Phone size={18} className="opacity-70"/> Call history</button>
           <button onClick={()=>{ onSelectMode?.(); setOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-white text-sm"><CheckSquare size={18} className="opacity-70"/> Select messages</button>
 
           <div className="relative">

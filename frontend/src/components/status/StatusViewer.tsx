@@ -13,24 +13,48 @@ export default function StatusViewer({ statuses, initialIndex=0, onClose, onView
   const [index,setIndex]=useState(initialIndex);
   const [paused,setPaused]=useState(false);
   const [progress,setProgress]=useState(0);
-  const timerRef=useRef<any>(null);
   const progressRef=useRef<any>(null);
+  const elapsedRef=useRef(0);
+  const startRef=useRef<number>(0);
   const status=statuses[index];
   const isOwner = currentUserId && status && (status.userId?._id ? status.userId._id.toString()===currentUserId : status.userId?.toString()===currentUserId);
 
+  const videoRef=useRef<HTMLVideoElement|null>(null);
+  const [videoDuration,setVideoDuration]=useState<number|null>(null);
+  const isVideo = status?.contentType==="video";
+  // Reset elapsed when index or videoDuration changes (but preserve pause state)
   useEffect(()=>{
     if(!status) return;
     onViewed?.(status._id);
     setProgress(0);
-    if(timerRef.current) clearInterval(timerRef.current);
+    elapsedRef.current=0;
+    startRef.current=Date.now();
     if(progressRef.current) clearInterval(progressRef.current);
-    if(paused) return;
-    const duration=5000;
+    if(paused){
+      // stay paused, progress stays 0 until resumed
+      return;
+    }
+    let duration=15000;
+    if(isVideo && videoDuration && isFinite(videoDuration) && videoDuration>0){
+      duration=Math.min(videoDuration*1000, 120000);
+    } else if(isVideo && !videoDuration){
+      // wait for metadata; use 15000 temporarily and will restart when duration loads
+      duration=15000;
+    }
     const step=50;
-    let elapsed=0;
+    startRef.current=Date.now();
     progressRef.current=setInterval(()=>{
       if(paused) return;
-      elapsed+=step;
+      if(isVideo && videoRef.current && isFinite(videoRef.current.duration) && videoRef.current.duration>0){
+        const vDur=videoRef.current.duration;
+        const cur=videoRef.current.currentTime;
+        if(isFinite(vDur) && vDur>0){
+          setProgress(Math.min((cur/vDur)*100,100));
+          // do not auto-advance here; onEnded handles it
+          return;
+        }
+      }
+      const elapsed = Date.now() - startRef.current + elapsedRef.current;
       setProgress(Math.min((elapsed/duration)*100,100));
       if(elapsed>=duration){
         clearInterval(progressRef.current);
@@ -42,7 +66,46 @@ export default function StatusViewer({ statuses, initialIndex=0, onClose, onView
       }
     }, step);
     return()=> { clearInterval(progressRef.current); };
-  },[index, paused, status?._id]);
+  },[index, status?._id, videoDuration]);
+
+  // Pause/resume without resetting progress
+  useEffect(()=>{
+    if(paused){
+      // pause: capture elapsed
+      if(progressRef.current) clearInterval(progressRef.current);
+      // compute elapsed so far
+      let duration=15000;
+      if(isVideo && videoDuration && isFinite(videoDuration) && videoDuration>0) duration=Math.min(videoDuration*1000,120000);
+      const curProgress = progress;
+      elapsedRef.current = (curProgress/100)*duration;
+      if(videoRef.current && isVideo) videoRef.current.pause();
+    } else {
+      // resume
+      if(!status) return;
+      let duration=15000;
+      if(isVideo && videoDuration && isFinite(videoDuration) && videoDuration>0) duration=Math.min(videoDuration*1000,120000);
+      startRef.current = Date.now();
+      const step=50;
+      progressRef.current=setInterval(()=>{
+        if(isVideo && videoRef.current && isFinite(videoRef.current.duration) && videoRef.current.duration>0){
+          const vDur=videoRef.current.duration;
+          const cur=videoRef.current.currentTime;
+          if(isFinite(vDur) && vDur>0){
+            setProgress(Math.min((cur/vDur)*100,100));
+            return;
+          }
+        }
+        const elapsed = Date.now() - startRef.current + elapsedRef.current;
+        setProgress(Math.min((elapsed/duration)*100,100));
+        if(elapsed>=duration){
+          clearInterval(progressRef.current);
+          if(index < statuses.length-1) setIndex(i=> i+1); else onClose();
+        }
+      }, step);
+      if(videoRef.current && isVideo) videoRef.current.play().catch(()=>{});
+    }
+    return ()=> { if(paused) {} };
+  },[paused]);
 
   useEffect(()=>{
     const onKey=(e:KeyboardEvent)=>{
@@ -52,7 +115,7 @@ export default function StatusViewer({ statuses, initialIndex=0, onClose, onView
     };
     window.addEventListener("keydown", onKey);
     return()=> window.removeEventListener("keydown", onKey);
-  },[]);
+  },[statuses.length, onClose]);
 
   if(!status) return null;
   const owner = status.userId || {};
@@ -72,7 +135,7 @@ export default function StatusViewer({ statuses, initialIndex=0, onClose, onView
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-0 md:p-4" onClick={onClose}>
-      <div className="relative w-full h-full md:max-w-md md:h-[80vh] md:rounded-3xl overflow-hidden bg-[#0b0d12] border md:border-white/10 shadow-2xl flex flex-col" onClick={e=> e.stopPropagation()} onMouseDown={()=> setPaused(true)} onMouseUp={()=> setPaused(false)} onTouchStart={()=> setPaused(true)} onTouchEnd={()=> setPaused(false)}>
+      <div className="relative w-full h-full md:max-w-md md:h-[80vh] md:rounded-3xl overflow-hidden bg-[#0b0d12] border md:border-white/10 shadow-2xl flex flex-col" onClick={e=> e.stopPropagation()} onMouseDown={()=> setPaused(true)} onMouseUp={()=> setPaused(false)} onMouseLeave={()=> setPaused(false)} onTouchStart={()=> setPaused(true)} onTouchEnd={()=> setPaused(false)}>
         {/* Progress */}
         <div className="absolute top-0 left-0 right-0 flex gap-1 p-2 z-10">
           {statuses.map((_:any,i:number)=>(
@@ -90,7 +153,21 @@ export default function StatusViewer({ statuses, initialIndex=0, onClose, onView
               <p className="text-white/60 text-xs">{new Date(status.createdAt).toLocaleTimeString()} · {timeLeft}h left {isExpired ? "· Expired" : ""}</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white"><X size={16}/></button>
+          <div className="flex items-center gap-2">
+            {isOwner && (
+              <button onClick={async()=>{
+                if(!confirm("Delete this status?")) return;
+                try{
+                  const { deleteStatus } = await import("../../apis/status.api");
+                  await deleteStatus(status._id);
+                  window.dispatchEvent(new CustomEvent("status-deleted",{detail:status._id}));
+                  // immediate local close - socket will also propagate
+                  onClose();
+                }catch(e:any){ alert(e.response?.data?.msg||"Delete failed"); }
+              }} className="px-3 py-1 rounded-full bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs">Delete</button>
+            )}
+            <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white"><X size={16}/></button>
+          </div>
         </div>
         {/* Content */}
         <div className="flex-1 flex items-center justify-center relative bg-black">
@@ -99,9 +176,12 @@ export default function StatusViewer({ statuses, initialIndex=0, onClose, onView
               <p className="text-white text-xl font-medium whitespace-pre-wrap" style={{ fontFamily: status.font || "Inter" }}>{status.textContent}</p>
             </div>
           ) : status.contentType==="image" ? (
-            <img src={status.mediaUrl} className="max-w-full max-h-full object-contain" alt="status" />
+            <img src={status.mediaUrl} className="max-w-full max-h-full object-contain" alt="status" onError={(e)=>{(e.target as HTMLImageElement).src="/founder-gourav.svg"}} />
           ) : (
-            <video src={status.mediaUrl} controls autoPlay className="max-w-full max-h-full object-contain" />
+            <video ref={videoRef} src={status.mediaUrl} controls autoPlay playsInline preload="metadata" className="max-w-full max-h-full object-contain" style={{ aspectRatio: 'auto' }} onLoadedMetadata={(e)=> {
+                const d=(e.target as HTMLVideoElement).duration;
+                if(isFinite(d) && d>0) setVideoDuration(d);
+              }} onEnded={()=>{ if(progressRef.current) clearInterval(progressRef.current); if(index < statuses.length-1) setIndex(i=> i+1); else onClose(); }} onError={()=> setVideoDuration(null)} />
           )}
           {/* Caption */}
           {status.textContent && status.contentType!=="text" && (

@@ -3,18 +3,27 @@ import { getPrivacySettings, updatePrivacySettings, getBlockedUsers, unblockUser
 import { getUserSettings, updateUserSettings, clearCache } from "../apis/settings.api";
 import { syncContacts } from "../apis/contact.api";
 import { getStickerPacks } from "../apis/sticker.api";
-import CallHistory from "../components/call/CallHistory";
+import { setTheme as applyLocalTheme } from "../utils/theme";
+import { useProfile } from "./profile/useProfile";
+import { ProfileView } from "./profile/ProfileView";
+import AppNavbar from "../components/layout/AppNavbar";
+import MobileBottomNav from "../components/layout/MobileBottomNav";
+import { useScrollDirection } from "../utils/useScrollDirection";
+import { useRef } from "react";
 
 const SettingsPage = () => {
-  const [tab, setTab] = useState("privacy");
+  const [tab, setTab] = useState("appearance");
   const [privacy, setPrivacy] = useState<any>(null);
   const [settings, setSettings] = useState<any>(null);
   const [blocked, setBlocked] = useState<any[]>([]);
   const [packs, setPacks] = useState<any[]>([]);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const navVisible = useScrollDirection(scrollRef);
+  const profileState = useProfile();
 
   const load = async()=>{
     try{ const p=await getPrivacySettings(); setPrivacy(p.data.settings||p.data); }catch{}
-    try{ const s=await getUserSettings(); setSettings(s.data.settings); }catch{}
+    try{ const s=await getUserSettings(); setSettings(s.data.settings); if(s.data.settings?.theme) applyLocalTheme(s.data.settings.theme); }catch{}
     try{ const b=await getBlockedUsers(); setBlocked(b.data.blocked||[]);}catch{}
     try{ const sp=await getStickerPacks(); setPacks(sp.data.packs||[]);}catch{}
   };
@@ -25,6 +34,10 @@ const SettingsPage = () => {
   };
   const updateSettings = async(k:string,v:any)=>{
     const r=await updateUserSettings({[k]:v}); setSettings(r.data.settings);
+    if(k==="theme"){
+      applyLocalTheme(v);
+      window.dispatchEvent(new Event("theme-change"));
+    }
   };
 
   const handleContactSync = async()=>{
@@ -44,85 +57,106 @@ const SettingsPage = () => {
   };
 
   return (
-    <div className="min-h-screen p-6 bg-[#FFF8F0] dark:bg-[#121212]">
-      <div className="max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-2 hike-gradient-text">Settings</h1>
-      <p className="text-sm opacity-60 mb-4">Make TalkSpace yours — Hike-inspired colorful controls</p>
-      <div className="flex gap-2 mb-6 flex-wrap">
-        {["privacy","notifications","chats","appearance","contacts","calls","about","founder"].map(t=>(
-          <button key={t} onClick={()=> setTab(t)} className={`px-4 py-2 rounded-full text-sm capitalize shadow-sm border transition ${tab===t?"bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] text-white border-transparent":"bg-white border-black/5 dark:bg-white/10 dark:border-white/10 backdrop-blur"}`}>{t==="founder"?"Founder Information":t}</button>
-        ))}
+    <div className="min-h-screen relative overflow-hidden bg-[#0b0d12]">
+      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-indigo-600/20 blur-[140px] rounded-full pointer-events-none" />
+      <div className="absolute top-40 -right-40 w-[400px] h-[400px] bg-blue-500/20 blur-[140px] rounded-full pointer-events-none" />
+      <div className="absolute inset-0 bg-grid pointer-events-none opacity-20" />
+      <div className="hidden md:block fixed top-1 left-1/2 -translate-x-1/2 w-[94%] max-w-6xl z-[100]">
+        <AppNavbar active={"home" as any} />
       </div>
+      <div ref={scrollRef} className="relative z-10 md:pt-24 min-h-screen overflow-auto">
+        <div className="max-w-4xl mx-auto px-4 md:px-6 py-6 pb-28 md:pb-6">
+          <div className="bg-[#121520]/90 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl shadow-black/40 overflow-hidden">
+            <div className="p-6 md:p-8 border-b border-white/10">
+              <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Settings</h1>
+              <p className="text-sm text-white/60 mt-1">Manage your TalkSpace experience</p>
+            </div>
+            <div className="px-4 md:px-6 py-4 border-b border-white/5 bg-white/[0.02]">
+              <div className="flex gap-2 overflow-x-auto scrollbar-thin pb-1 -mb-1">
+                {["profile","privacy","notifications","chats","appearance","contacts","about","founder"].map(t=>(
+                  <button key={t} onClick={()=> setTab(t)} className={`px-4 py-2 rounded-full text-sm capitalize whitespace-nowrap font-medium border transition shrink-0 ${tab===t?"bg-indigo-600 text-white border-indigo-500 shadow":"bg-white/5 hover:bg-white/10 text-white/80 border-white/10"}`}>{t==="founder"?"Founder":t}</button>
+                ))}
+              </div>
+            </div>
+            <div className="p-4 md:p-6">
+
+
+      {tab==="profile" && (
+        <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-4 md:p-6">
+          {profileState.initializing ? <p className="text-white/60 text-sm">Loading profile…</p> : <ProfileView {...profileState} logout={profileState.handleLogout} />}
+        </div>
+      )}
 
       {tab==="privacy" && privacy && (
-        <div className="space-y-4 max-w-xl bg-white/70 dark:bg-white/10 backdrop-blur rounded-2xl p-6">
-          <h3 className="font-semibold">Privacy Controls</h3>
+        <div className="space-y-4 bg-white/[0.04] border border-white/10 rounded-2xl p-6">
+          <h3 className="font-semibold text-white">Privacy Controls</h3>
           {(["lastSeenVisibility","onlineStatusVisibility","profilePhotoVisibility","statusVisibility"] as const).map(k=>(
             <div key={k} className="flex justify-between items-center">
-              <span className="text-sm">{k}</span>
-              <select value={privacy[k]} onChange={e=>updatePrivacy(k,e.target.value)} className="border rounded px-2 py-1 text-sm dark:bg-zinc-800">
+              <span className="text-sm text-white/80">{k}</span>
+              <select value={privacy[k]} onChange={e=>updatePrivacy(k,e.target.value)} className="bg-[#0b0d12] border border-white/10 rounded-lg px-2 py-1 text-sm text-white">
                 <option value="everyone">Everyone</option><option value="friends">My Contacts</option><option value="nobody">Nobody</option>
               </select>
             </div>
           ))}
-          <div className="flex justify-between items-center"><span className="text-sm">Read Receipts</span><input type="checkbox" checked={privacy.readReceiptEnabled} onChange={e=>updatePrivacy("readReceiptEnabled",e.target.checked)} /></div>
-          <div className="flex justify-between items-center"><span className="text-sm">Who can message me</span><select value={privacy.allowMessagesFrom} onChange={e=>updatePrivacy("allowMessagesFrom",e.target.value)} className="border rounded px-2 py-1 text-sm"><option value="everyone">Everyone</option><option value="friends">Friends</option></select></div>
-          <div className="flex justify-between items-center"><span className="text-sm">Who can add me to groups</span><select value={privacy.allowGroupInvitesFrom} onChange={e=>updatePrivacy("allowGroupInvitesFrom",e.target.value)} className="border rounded px-2 py-1 text-sm"><option value="everyone">Everyone</option><option value="friends">Friends</option></select></div>
-          <div><h4 className="font-medium mt-4">Blocked Users</h4>{blocked.length===0? <p className="text-sm opacity-60">No blocked users</p>: blocked.map((u:any)=>(<div key={u._id} className="flex justify-between py-1"><span>{u.username}</span><button onClick={async()=>{await unblockUser(u._id); load();}} className="text-orange-600 text-sm">Unblock</button></div>))}</div>
+          <div className="flex justify-between items-center"><span className="text-sm text-white/80">Read Receipts</span><input type="checkbox" checked={privacy.readReceiptEnabled} onChange={e=>updatePrivacy("readReceiptEnabled",e.target.checked)} className="accent-indigo-600" /></div>
+          <div className="flex justify-between items-center"><span className="text-sm text-white/80">Who can message me</span><select value={privacy.allowMessagesFrom} onChange={e=>updatePrivacy("allowMessagesFrom",e.target.value)} className="bg-[#0b0d12] border border-white/10 rounded-lg px-2 py-1 text-sm text-white"><option value="everyone">Everyone</option><option value="friends">Friends</option></select></div>
+          <div className="flex justify-between items-center"><span className="text-sm text-white/80">Who can add me to groups</span><select value={privacy.allowGroupInvitesFrom} onChange={e=>updatePrivacy("allowGroupInvitesFrom",e.target.value)} className="bg-[#0b0d12] border border-white/10 rounded-lg px-2 py-1 text-sm text-white"><option value="everyone">Everyone</option><option value="friends">Friends</option></select></div>
+          <div><h4 className="font-medium mt-4 text-white">Blocked Users</h4>{blocked.length===0? <p className="text-sm text-white/50">No blocked users</p>: blocked.map((u:any)=>(<div key={u._id} className="flex justify-between py-2 border-b border-white/5"><span className="text-white/80 text-sm">{u.username}</span><button onClick={async()=>{await unblockUser(u._id); load();}} className="text-indigo-400 text-sm">Unblock</button></div>))}</div>
         </div>
       )}
 
       {tab==="notifications" && settings && (
-        <div className="space-y-4 max-w-xl bg-white/70 dark:bg-white/10 backdrop-blur rounded-2xl p-6">
-          <h3 className="font-semibold">Notifications</h3>
+        <div className="space-y-4 bg-white/[0.04] border border-white/10 rounded-2xl p-6">
+          <h3 className="font-semibold text-white">Notifications</h3>
           {["pushNotificationsEnabled","soundEnabled","vibrationEnabled"].map(k=>(
-            <div key={k} className="flex justify-between items-center"><span className="text-sm">{k}</span><input type="checkbox" checked={settings[k]} onChange={e=>updateSettings(k,e.target.checked)} /></div>
+            <div key={k} className="flex justify-between items-center"><span className="text-sm text-white/80">{k}</span><input type="checkbox" checked={settings[k]} onChange={e=>updateSettings(k,e.target.checked)} className="accent-indigo-600" /></div>
           ))}
         </div>
       )}
 
       {tab==="chats" && settings && (
-        <div className="space-y-4 max-w-xl bg-white/70 dark:bg-white/10 backdrop-blur rounded-2xl p-6">
-          <h3 className="font-semibold">Chats</h3>
-          <div className="flex justify-between items-center"><span className="text-sm">Enter to Send</span><input type="checkbox" checked={settings.enterToSend} onChange={e=>updateSettings("enterToSend",e.target.checked)} /></div>
-          <div className="flex justify-between items-center"><span className="text-sm">Font Size</span><select value={settings.fontSize} onChange={e=>updateSettings("fontSize",e.target.value)} className="border rounded px-2 py-1 text-sm"><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select></div>
-          <button onClick={async()=>{await clearCache(); alert("Cache cleared");}} className="px-4 py-2 bg-orange-500 text-white rounded-full text-sm">Clear Media Cache</button>
+        <div className="space-y-4 bg-white/[0.04] border border-white/10 rounded-2xl p-6">
+          <h3 className="font-semibold text-white">Chats</h3>
+          <div className="flex justify-between items-center"><span className="text-sm text-white/80">Enter to Send</span><input type="checkbox" checked={settings.enterToSend} onChange={e=>updateSettings("enterToSend",e.target.checked)} className="accent-indigo-600" /></div>
+          <div className="flex justify-between items-center"><span className="text-sm text-white/80">Font Size</span><select value={settings.fontSize} onChange={e=>updateSettings("fontSize",e.target.value)} className="bg-[#0b0d12] border border-white/10 rounded-lg px-2 py-1 text-sm text-white"><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select></div>
+          <button onClick={async()=>{await clearCache(); alert("Cache cleared");}} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full text-sm">Clear Media Cache</button>
         </div>
       )}
 
       {tab==="appearance" && settings && (
-        <div className="space-y-4 max-w-xl bg-white/70 dark:bg-white/10 backdrop-blur rounded-2xl p-6">
-          <h3 className="font-semibold">Appearance</h3>
-          <div className="flex gap-2">{["light","dark","auto"].map(v=>(<button key={v} onClick={()=>updateSettings("theme",v)} className={`px-3 py-1 rounded-full text-sm capitalize ${settings.theme===v?"bg-orange-500 text-white":"bg-white/60"}`}>{v}</button>))}</div>
-          <div>Glass Intensity {settings.glassmorphicIntensity}<input type="range" min={0} max={100} value={settings.glassmorphicIntensity} onChange={e=>updateSettings("glassmorphicIntensity",parseInt(e.target.value))} className="w-full" /></div>
+        <div className="space-y-6 bg-white/[0.04] border border-white/10 rounded-2xl p-6">
+          <h3 className="font-semibold text-white">Appearance</h3>
+          <div>
+            <p className="text-sm text-white/80 mb-3">Theme — applies instantly, persists after refresh</p>
+            <div className="flex gap-2">
+              {["light","dark","auto"].map(v=>(
+                <button key={v} onClick={()=>updateSettings("theme",v)} className={`flex-1 py-2.5 rounded-xl text-sm capitalize font-medium border transition ${settings.theme===v?"bg-indigo-600 text-white border-indigo-500":"bg-white/5 hover:bg-white/10 text-white border-white/10"}`}>{v}</button>
+              ))}
+            </div>
+            <p className="text-xs text-white/40 mt-2">Light / Dark / System (auto). Visible on mobile and desktop.</p>
+          </div>
+          <div><p className="text-sm text-white/80 mb-2">Glass Intensity {settings.glassmorphicIntensity}</p><input type="range" min={0} max={100} value={settings.glassmorphicIntensity} onChange={e=>updateSettings("glassmorphicIntensity",parseInt(e.target.value))} className="w-full accent-indigo-600" /></div>
         </div>
       )}
 
       {tab==="contacts" && (
-        <div className="space-y-4 max-w-xl bg-white/70 dark:bg-white/10 backdrop-blur rounded-2xl p-6">
-          <h3 className="font-semibold">Contact Sync</h3>
-          <p className="text-sm opacity-70">Allow TalkSpace to access your contacts to find friends. We hash locally before matching.</p>
-          <button onClick={handleContactSync} className="px-4 py-2 bg-orange-500 text-white rounded-full">Allow & Sync Contacts</button>
-          <p className="text-xs opacity-50">Unsupported browsers will fallback to email prompt. Permission denied is handled gracefully.</p>
-          <div><h4 className="font-medium mt-4">Stickers</h4>{packs.map((p:any)=>(<div key={p._id} className="flex items-center gap-2 py-1"><img src={p.thumbnail} className="w-8 h-8 rounded" alt="thumb" /><span className="text-sm">{p.name}</span></div>))}</div>
-        </div>
-      )}
-
-      {tab==="calls" && (
-        <div className="max-w-2xl bg-white/70 dark:bg-white/5 backdrop-blur rounded-2xl p-6">
-          <h3 className="font-semibold mb-4">Call History</h3>
-          <CallHistory />
+        <div className="space-y-4 bg-white/[0.04] border border-white/10 rounded-2xl p-6">
+          <h3 className="font-semibold text-white">Contact Sync</h3>
+          <p className="text-sm text-white/60">Allow TalkSpace to access your contacts to find friends.</p>
+          <button onClick={handleContactSync} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full">Allow & Sync Contacts</button>
+          <p className="text-xs text-white/40">Unsupported browsers will fallback to email prompt.</p>
+          <div><h4 className="font-medium mt-4 text-white">Stickers</h4>{packs.map((p:any)=>(<div key={p._id} className="flex items-center gap-2 py-1"><img src={p.thumbnail} className="w-8 h-8 rounded" alt="thumb" /><span className="text-sm text-white/70">{p.name}</span></div>))}</div>
         </div>
       )}
 
       {tab==="about" && (
-        <div className="space-y-2 max-w-xl bg-white dark:bg-white/10 backdrop-blur rounded-2xl p-6 shadow-sm border border-black/5">
-          <h3 className="font-semibold">About TalkSpace — Hike Edition</h3><p className="text-sm">Version 1.0.0 • Colorful • Clean • Hike-inspired</p><p className="text-sm opacity-70">Privacy Policy: Your data is encrypted. Terms apply. Help at support@talkspace.app</p>
+        <div className="space-y-2 bg-white/[0.04] border border-white/10 rounded-2xl p-6">
+          <h3 className="font-semibold text-white">About TalkSpace</h3><p className="text-sm text-white/70">Version 1.0.0 • Colorful • Clean</p><p className="text-sm text-white/50">Privacy Policy: Your data is encrypted. Terms apply. Help at support@talkspace.app</p>
         </div>
       )}
 
       {tab==="founder" && (
-        <div className="max-w-2xl bg-white/80 dark:bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 md:p-8 shadow-xl">
+        <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-6 md:p-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-600 to-blue-500 flex items-center justify-center text-white font-bold">Fi</div>
             <div>
@@ -166,7 +200,11 @@ const SettingsPage = () => {
           </div>
         </div>
       )}
-    </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <MobileBottomNav active="home" visible={navVisible} />
     </div>
   )
 }

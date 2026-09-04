@@ -59,7 +59,7 @@ export default function Sidebar({
     dark:md:border-white/10
   "
     >
-      {/*  HEADER - WhatsApp style Chats + ⋮ + + */}
+      {/*  HEADER */}
       <div
         className="
     sticky top-0 z-20 p-3 space-y-3
@@ -77,19 +77,26 @@ export default function Sidebar({
           <div className="flex items-center gap-1">
             <button onClick={()=> setShowGroupModal(true)} className="p-2 rounded-full hover:bg-white/10 text-white" title="New chat"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 8v8M8 12h8"/></svg></button>
             <SidebarHeaderMenu onNewGroup={()=> setShowGroupModal(true)} onStarred={()=> setMode("starred" as any)} onSelectChats={()=> (window as any).__setChatSelectMode?.(true)} onMarkAllRead={async()=>{
-              for(const c of chats){
-                if(c.unreadCount>0 && c.user?._id){
-                  try{ await (await import("../../apis/chat.api")).markReadApi(c.user._id); }catch{}
+              try{
+                const {markAllReadApi} = await import("../../apis/chat.api");
+                await markAllReadApi();
+                setChats((prev:any)=> prev.map((c:any)=> ({...c, unreadCount:0})));
+                // also refresh from server to ensure persistence
+                const {getChatListApi}=await import("../../apis/chat.api");
+                try{ const r=await getChatListApi(); if(r.data?.chats) { /* optionally sync but keep unread 0 */ } }catch{}
+              }catch{
+                // fallback per-chat
+                for(const c of chats){
+                  if(c.unreadCount>0 && c.user?._id){
+                    try{ await (await import("../../apis/chat.api")).markReadApi2(c.user._id); }catch{}
+                  }
                 }
+                setChats((prev:any)=> prev.map((c:any)=> ({...c, unreadCount:0})));
               }
-              setChats((prev:any)=> prev.map((c:any)=> ({...c, unreadCount:0})));
             }} />
           </div>
         </div>
-        {/* BRANDING (MOBILE ONLY) - kept hidden on desktop but show Chats already */}
-        <div className="md:hidden flex items-center gap-2 text-sm text-white/60">
-          <span>WhatsApp-style header — New group etc. in ⋮</span>
-        </div>
+
         <TextInput
           placeholder="Search colorful friends ✨"
           value={query}
@@ -101,36 +108,38 @@ export default function Sidebar({
           }}
         />
 
-        <div className="flex gap-3 mt-5 flex-wrap">
+        <div className="flex gap-2 mt-4 flex-wrap">
           <button
             onClick={() => {
               setMode("chats");
               setQuery("");
+              setShowGroups(false);
             }}
- className={`text-xs px-3 py-1 rounded-lg ${
+            className={`text-xs px-3 py-1.5 rounded-full font-medium border transition ${
               mode === "chats"
-                ? "bg-orange-500 text-white"
-                : "bg-[#2b1f16]/10 hover:bg-[#2b1f16]/15 text-[#2b1f16] dark:bg-white/10 dark:hover:bg-white/20 dark:text-white"
+                ? "bg-indigo-600 text-white border-indigo-500"
+                : "bg-white/5 hover:bg-white/10 text-white/80 border-white/10"
             }`}
           >
             Chats
           </button>
-
           <button
             onClick={() => {
               setMode("requests");
               setQuery("");
+              setShowGroups(false);
             }}
- className={`text-xs px-3 py-1 rounded-lg ${
+            className={`text-xs px-3 py-1.5 rounded-full font-medium border transition ${
               mode === "requests"
-                ? "bg-orange-500 text-white"
-                : "bg-[#2b1f16]/10 hover:bg-[#2b1f16]/15 text-[#2b1f16] dark:bg-white/10 dark:hover:bg-white/20 dark:text-white"
+                ? "bg-indigo-600 text-white border-indigo-500"
+                : "bg-white/5 hover:bg-white/10 text-white/80 border-white/10"
             }`}
           >
             Requests
           </button>
-          <button onClick={()=> setShowGroups(!showGroups)} className="text-xs px-3 py-1 rounded-full bg-white border border-black/5 shadow-sm dark:bg-white/10 dark:border-white/10">Groups</button>
-          <button onClick={()=> setShowGroupModal(true)} className="text-xs px-3 py-1 rounded-full bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] text-white shadow-md">+ Group</button>
+          {showGroups && (
+            <button onClick={()=> setShowGroups(false)} className="text-xs px-3 py-1.5 rounded-full bg-white/10 text-white/70 border border-white/10">Hide Groups ✕</button>
+          )}
         </div>
         <StatusList />
       </div>

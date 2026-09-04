@@ -13,8 +13,14 @@ export const createStatus = async (req:Request,res:Response)=>{
     if((req as any).file){
       const file=(req as any).file;
       if(file.mimetype.startsWith("image/")) type="image"; else if(file.mimetype.startsWith("video/")) type="video";
+      if(type==="video" && file.size > 50*1024*1024) return res.status(400).json({success:false,msg:"Video too large, max 50MB"});
       const b64=`data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
-      const up:any=await cloudinary.uploader.upload(b64,{folder:"status"});
+      const up:any=await cloudinary.uploader.upload(b64,{folder:"status", resource_type: type==="video" ? "video" : "image"});
+      // Validate video duration 2 minutes max (frontend also validates, backend enforces)
+      if(type==="video" && up.duration && up.duration > 120){
+        try{ await cloudinary.uploader.destroy(up.public_id, {resource_type:"video"} as any); }catch{}
+        return res.status(400).json({success:false,msg:"Video must be max 2 minutes"});
+      }
       mediaUrl=up.secure_url;
     }
     if(type==="text" && !textContent) return res.status(400).json({success:false,msg:"Text required"});
@@ -104,5 +110,19 @@ export const markStatusViewed = async (req:Request,res:Response)=>{
 };
 
 export const deleteStatus = async (req:Request,res:Response)=>{
-  try{ const s=await StatusUpdateModel.findById(req.params.statusId); if(!s) return res.status(404).json({success:false,msg:"Not found"}); if(s.userId.toString()!==req.user?.userId) return res.status(403).json({success:false,msg:"Not owner"}); await s.deleteOne(); return res.json({success:true, msg:"Deleted"}); }catch(e){ return res.status(500).json({success:false,msg:"error"});}
+  try{
+    const s=await StatusUpdateModel.findById(req.params.statusId); if(!s) return res.status(404).json({success:false,msg:"Not found"});
+    if(s.userId.toString()!==req.user?.userId) return res.status(403).json({success:false,msg:"Not owner"});
+    const statusId=s._id;
+    const userId=s.userId;
+    await s.deleteOne();
+    try{
+      const io=getIO();
+      const user=await UserMOdel.findById(userId);
+      const friends=user?.friends||[];
+      friends.forEach((f:any)=> io.to(f.toString()).emit("status-deleted",{statusId, userId}));
+      io.to(userId.toString()).emit("status-deleted",{statusId, userId});
+    }catch{}
+    return res.json({success:true, msg:"Deleted"});
+  }catch(e){ return res.status(500).json({success:false,msg:"error"});}
 };

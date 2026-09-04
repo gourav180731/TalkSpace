@@ -8,11 +8,20 @@ import AppNavbar from "../components/layout/AppNavbar";
 import MobileBottomNav from "../components/layout/MobileBottomNav";
 import AppLock from "../components/dashboard/AppLock";
 import { useScrollDirection } from "../utils/useScrollDirection";
+import { useGlobalCall } from "../context/CallContext";
 
 export default function DashboardPage() {
   const [selectedChat, setSelectedChat] = useState<any>(null);
   const [showFriendsPicker, setShowFriendsPicker] = useState(false);
+  const { callStatus, minimizeCall } = useGlobalCall();
   const isMobileChatOpen = Boolean(selectedChat);
+  const handleBack = () => {
+    if (callStatus === "calling" || callStatus === "connected" || callStatus === "ringing") {
+      minimizeCall();
+      return;
+    }
+    setSelectedChat(null);
+  };
 
   const [searchParams, setSearchParams] = useSearchParams();
   const sidebarScrollRef = useRef<HTMLDivElement>(null);
@@ -70,7 +79,7 @@ export default function DashboardPage() {
               {selectedChat ? (
                 <ChatWindow
                   chat={selectedChat}
-                  onBack={() => setSelectedChat(null)}
+                  onBack={handleBack}
                 />
               ) : (
                 <EmptyState />
@@ -85,7 +94,7 @@ export default function DashboardPage() {
         <div className="md:hidden fixed inset-0 z-[60] bg-[#0b0d12]">
           <ChatWindow
             chat={selectedChat}
-            onBack={() => setSelectedChat(null)}
+            onBack={handleBack}
           />
         </div>
       )}

@@ -425,6 +425,21 @@ export const markMessagesAsRead = async (req: Request, res: Response) => {
   return res.json({ success: true });
 };
 
+export const markAllAsRead = async (req: Request, res: Response) => {
+  const myId = req.user?.userId as string;
+  if(!myId) return res.status(401).json({success:false, msg:"Unauthorized"});
+  await MessageModal.updateMany(
+    { receiverId: myId, isRead: false },
+    { $set: { isRead: true, status: "read" } }
+  );
+  try {
+    const io = getIO();
+    io.emit("messages-read-all", { by: myId });
+    io.to(myId).emit("messages-read-all", { by: myId });
+  } catch {}
+  return res.json({ success: true });
+};
+
 export const clearChat = async (req: Request, res: Response) => {
   const myId = req.user!.userId;
   const friendId = req.params.id;

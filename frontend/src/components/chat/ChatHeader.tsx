@@ -1,4 +1,4 @@
-import { ArrowLeft, Phone, Video, Search, Users } from "lucide-react";
+import { ArrowLeft, Users } from "lucide-react";
 import { usePresence } from "../../context/PresenceContext";
 import { useGlobalCall } from "../../context/CallContext";
 import ChatHeaderMenu from "./ChatHeaderMenu";
@@ -62,41 +62,9 @@ export default function ChatHeader({ user, onBack, onSearch, onSelectMode, onClo
         </span>
       </div>
 
-      {/* ACTIONS spec screenshot: Video | Phone | Search | Three dots */}
+      {/* ACTIONS - All in 3-dot menu per Task 4 */}
       <div className="ml-auto flex items-center gap-1">
-        {!user.isBot && (
-          <>
-            <button
-              onClick={() => { if (callSocket.callStatus === "idle") user.onCall?.("video"); }}
-              disabled={callSocket.callStatus !== "idle"}
-              className={`p-2 rounded-full hover:bg-white/10 text-white transition ${
-                callSocket.callStatus !== "idle"
-                  ? "opacity-50 cursor-not-allowed"
-                  : ""
-              }`}
-              title="Video call"
-            >
-              <Video size={20} />
-            </button>
-
-            <button
-              onClick={() => { if (callSocket.callStatus === "idle") user.onCall?.("audio"); }}
-              disabled={callSocket.callStatus !== "idle"}
-              className={`p-2 rounded-full hover:bg-white/10 text-white transition ${
-                callSocket.callStatus !== "idle"
-                  ? "opacity-50 cursor-not-allowed"
-                  : ""
-              }`}
-              title="Voice call"
-            >
-              <Phone size={20} />
-            </button>
-          </>
-        )}
-        <button onClick={()=> onSearch?.()} className="p-2 rounded-full hover:bg-white/10 text-white" title="Search">
-          <Search size={20} />
-        </button>
-        <ChatHeaderMenu chat={user} onSearch={onSearch} onSelectMode={onSelectMode} onCloseChat={onCloseChat} onContactInfo={onContactInfo} onWallpaperChange={onWallpaperChange} />
+        <ChatHeaderMenu chat={user} onSearch={onSearch} onSelectMode={onSelectMode} onCloseChat={onCloseChat} onContactInfo={onContactInfo} onWallpaperChange={onWallpaperChange} onCallVoice={()=> { if(callSocket.callStatus==="idle") user.onCall?.("audio"); }} onCallVideo={()=> { if(callSocket.callStatus==="idle") user.onCall?.("video"); }} onShowCallHistory={()=> (window as any).__setShowCallHistory?.(true)} />
       </div>
     </div>
       {isGroup && showGroupInfo && (

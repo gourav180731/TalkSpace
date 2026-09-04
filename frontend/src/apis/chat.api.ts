@@ -41,4 +41,5 @@ export const messageReactionApi = (id: string, emoji: string) =>
 export const editMessageApi = (id:string, text:string)=> axiosInstance.patch(`/message/${id}/edit`, {text});
 export const getEditHistoryApi = (id:string)=> axiosInstance.get(`/message/${id}/history`);
 export const markReadApi2 = (id:string)=> axiosInstance.post(`/message/chat/read/${id}`);
+export const markAllReadApi = ()=> axiosInstance.post(`/message/read-all`);
 

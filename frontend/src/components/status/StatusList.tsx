@@ -13,6 +13,18 @@ export default function StatusList(){
   const submit=async()=>{
     if(!text.trim() && !file) { setError("Add text or media"); return; }
     if(text.length>700){ setError("Max 700 chars"); return; }
+    // Frontend video duration validation 2min
+    if(file && file.type.startsWith("video")){
+      const url=URL.createObjectURL(file);
+      const dur: number = await new Promise((resolve)=>{
+        const v=document.createElement("video");
+        v.preload="metadata";
+        v.onloadedmetadata=()=>{ URL.revokeObjectURL(url); resolve(v.duration); };
+        v.onerror=()=>{ URL.revokeObjectURL(url); resolve(0); };
+        v.src=url;
+      });
+      if(dur>120){ setError("Video must be max 2 minutes"); return; }
+    }
     setLoading(true); setError("");
     const fd=new FormData(); if(text) fd.append("textContent",text); if(file) fd.append("media",file); fd.append("contentType", file? (file.type.startsWith("image")?"image":"video"):"text"); fd.append("privacyMode", privacy);
     try{ await createStatus(fd); setShowCreate(false); setText(""); setFile(null); }catch(e:any){ setError(e.response?.data?.msg||"Failed"); } finally{ setLoading(false); }

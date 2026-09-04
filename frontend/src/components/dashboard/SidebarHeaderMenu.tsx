@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { UserPlus, Star, CheckSquare, MailCheck, Lock, LogOut, Phone } from "lucide-react";
+import { UserPlus, Star, CheckSquare, MailCheck, Lock, LogOut, Phone, User } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
@@ -44,6 +44,7 @@ export default function SidebarHeaderMenu({ onNewGroup, onStarred, onSelectChats
       </button>
       {open && (
         <div className="absolute right-0 top-full mt-2 w-64 bg-[#111b21] border border-white/15 backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.6)] rounded-xl py-2 z-50" onClick={e=>e.stopPropagation()}>
+          <button onClick={()=>{ navigate("/profile"); setOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-white text-sm"><User size={18} className="opacity-70"/> Profile</button>
           <button onClick={()=>{ onNewGroup?.(); setOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-white text-sm"><UserPlus size={18} className="opacity-70"/> New group</button>
           <button onClick={()=>{ onStarred?.(); setOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-white text-sm"><Star size={18} className="opacity-70"/> Starred messages</button>
           <button onClick={()=>{ onSelectChats?.(); setOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-white text-sm"><CheckSquare size={18} className="opacity-70"/> Select chats</button>

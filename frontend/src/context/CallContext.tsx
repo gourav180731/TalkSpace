@@ -24,6 +24,7 @@ export const CallProvider = ({ children }: any) => {
   const [callType,        setCallType]        = useState<"audio" | "video">("audio");
   const [activeCallUserId,setActiveCallUserId]= useState<string | null>(null);
   const [missedCallMsg,   setMissedCallMsg]   = useState<string | null>(null);
+  const [isMinimized, setIsMinimized] = useState(false);
 
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const localVideoRef  = useRef<HTMLVideoElement | null>(null);
@@ -94,6 +95,7 @@ export const CallProvider = ({ children }: any) => {
       setIncomingCall(null);
       setCallUser(null);
       setActiveCallUserId(null);
+      setIsMinimized(false);
       setMissedCallMsg("User declined the call");
       setTimeout(() => setMissedCallMsg(null), 3000);
     };
@@ -104,6 +106,7 @@ export const CallProvider = ({ children }: any) => {
       setCallStatus("idle");
       setCallUser(null);
       setActiveCallUserId(null);
+      setIsMinimized(false);
       setMissedCallMsg("User is busy right now");
       setTimeout(() => setMissedCallMsg(null), 4000);
     };
@@ -112,6 +115,7 @@ export const CallProvider = ({ children }: any) => {
       stopAllAudio();
       setIncomingCall(null);
       setCallStatus("idle");
+      setIsMinimized(false);
     };
 
     const onError = (msg:any) => {
@@ -129,7 +133,7 @@ export const CallProvider = ({ children }: any) => {
     };
     const onEnded = () => {
       clearMissedTimer(); stopAllAudio();
-      setCallStatus("idle"); setIncomingCall(null); setCallUser(null); setActiveCallUserId(null);
+      setCallStatus("idle"); setIncomingCall(null); setCallUser(null); setActiveCallUserId(null); setIsMinimized(false);
     };
 
     socket.on("incoming-call",  onIncoming);
@@ -156,7 +160,30 @@ export const CallProvider = ({ children }: any) => {
       stopAllAudio();
       clearMissedTimer();
     }
+    if (callStatus === "idle") setIsMinimized(false);
   }, [callStatus]);
+
+  const minimizeCall = () => setIsMinimized(true);
+  const maximizeCall = () => setIsMinimized(false);
+
+  // Auto-minimize on browser back when call active
+  useEffect(()=>{
+    const onPopState = ()=>{
+      if(callStatusRef.current !== "idle" && !isMinimized){
+        // Prevent actual back navigation, minimize instead
+        window.history.pushState(null, "");
+        setIsMinimized(true);
+      }
+    };
+    if(typeof window !== "undefined"){
+      window.addEventListener("popstate", onPopState);
+      // Push state when call becomes active to intercept back
+      if(callStatus === "calling" || callStatus === "connected" || callStatus === "ringing"){
+        window.history.pushState({callMinimized:true}, "");
+      }
+      return ()=> window.removeEventListener("popstate", onPopState);
+    }
+  }, [callStatus, isMinimized]);
 
   return (
     <CallContext.Provider value={{
@@ -167,6 +194,8 @@ export const CallProvider = ({ children }: any) => {
       callType,        setCallType,
       remoteVideoRef,  localVideoRef, remoteAudioRef,
       missedCallMsg,
+      isMinimized, setIsMinimized,
+      minimizeCall, maximizeCall,
       startMissedTimer,
       clearMissedTimer,
       stopAllAudio,
