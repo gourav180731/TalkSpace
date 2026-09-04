@@ -38,12 +38,14 @@ export const CallProvider = ({ children }: any) => {
   const connectedAtRef  = useRef<number | null>(null);
 
   const callStatusRef  = useRef<CallStatus>("idle");
+  const currentCallIdRef = useRef<string | null>(null);
   const timeoutRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ringtoneRef    = useRef<HTMLAudioElement | null>(null);
   const dialtoneRef    = useRef<HTMLAudioElement | null>(null);
 
   // keep ref in sync
   useEffect(() => { callStatusRef.current = callStatus; }, [callStatus]);
+  useEffect(() => { currentCallIdRef.current = currentCallId; }, [currentCallId]);
 
   /* ── audio control ───────────────────────────────────────────────────── */
   const stopAllAudio = () => {
@@ -70,11 +72,12 @@ export const CallProvider = ({ children }: any) => {
     clearMissedTimer();
     timeoutRef.current = setTimeout(() => {
       if (callStatusRef.current === "calling") {
-        socket.emit("call-missed", { to: toUserId });
+        socket.emit("call-missed", { to: toUserId, callId: currentCallIdRef.current });
         stopAllAudio();
         setCallStatus("idle");
         setCallUser(null);
         setActiveCallUserId(null);
+        setCurrentCallId(null);
         setMissedCallMsg(`${callerName} is not responding right now`);
         setTimeout(() => setMissedCallMsg(null), 4000);
       }

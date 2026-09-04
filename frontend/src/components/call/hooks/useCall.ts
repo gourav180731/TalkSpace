@@ -328,13 +328,19 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
 
   // END CALL
   const endCall = () => {
-    // allow end even if peer not yet connected (for cancelled)
     const cid = (callSocket as any).currentCallId;
-    if (activeCallUserId) {
-      socket.emit("end-call", { to: activeCallUserId, callId: cid });
-    } else if(cid){
-      // fallback broadcast end to peer if activeCallUserId missing but we have callId
-      socket.emit("end-call", { to: (callSocket as any).callUser?._id, callId: cid });
+    const isGroup = !!(callSocket as any).callUser?.isGroup;
+    const targetId = activeCallUserId || (callSocket as any).callUser?._id;
+    if(isGroup && targetId){
+      // Group call end
+      const dur = (callSocket as any).connectedAtRef?.current ? Math.floor((Date.now() - (callSocket as any).connectedAtRef.current)/1000) : 0;
+      socket.emit("group-call-end", { groupId: targetId, callId: cid, duration: dur });
+    } else {
+      if (activeCallUserId) {
+        socket.emit("end-call", { to: activeCallUserId, callId: cid });
+      } else if(cid){
+        socket.emit("end-call", { to: (callSocket as any).callUser?._id, callId: cid });
+      }
     }
 
     cleanup();

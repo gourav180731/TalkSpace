@@ -115,73 +115,131 @@ export function initSocket(io: Server) {
       }
     });
 
-    socket.on("reject-call", ({ to }) => {
+    socket.on("reject-call", async ({ to, callId: clientCallId }) => {
       const toSocketId = onlineUsers.get(to);
       if (toSocketId) {
-        io.to(toSocketId).emit("call-rejected", { from: userId });
+        io.to(toSocketId).emit("call-rejected", { from: userId, callId: clientCallId });
       }
       try{
-        const info=ongoingCalls.get(userId) || ongoingCalls.get(to);
-        const callId = info?.callId;
-        const origCaller = info?.caller || to; // to was caller for incoming
-        const origReceiver = info?.receiver || userId;
+        let info=ongoingCalls.get(userId) || ongoingCalls.get(to);
+        let callId = info?.callId || clientCallId;
+        let origCaller = info?.caller;
+        let origReceiver = info?.receiver;
+        if((!origCaller || !origReceiver) && callId){
+          try{ const { default: CallHistory } = await import("./models/callHistory.model"); const rec:any = await CallHistory.findOne({callId}); if(rec){ origCaller = rec.caller.toString(); origReceiver = rec.receiver.toString(); }}catch{}
+        }
+        if(!origCaller) origCaller = to;
+        if(!origReceiver) origReceiver = userId;
         const callType=info?.callType || "audio";
         const start=info?.startTime || new Date();
-        logCall({ callId, caller: origCaller, receiver: origReceiver, callType: callType as any, status: "rejected", startTime: start, endTime: new Date(), duration: 0 });
+        await logCall({ callId, caller: origCaller, receiver: origReceiver, callType: callType as any, status: "rejected", startTime: start, endTime: new Date(), duration: 0 });
       }catch{}
       ongoingCalls.delete(userId);
       ongoingCalls.delete(to);
     });
 
-    socket.on("end-call", ({ to, callId: clientCallId }) => {
+    socket.on("end-call", async ({ to, callId: clientCallId }) => {
       const toSocketId = onlineUsers.get(to);
       if (toSocketId) {
         io.to(toSocketId).emit("call-ended", { from: userId, callId: clientCallId });
       }
       try{
-        const info=ongoingCalls.get(userId) || ongoingCalls.get(to);
-        const cid = info?.callId || clientCallId;
-        // Use original caller/receiver for consistent history direction
-        const caller = info?.caller || userId;
-        const receiver = info?.receiver || to;
-        const ct=info?.callType || "audio";
-        const st=info?.startTime || new Date();
-        const ans=info?.answeredAt;
+        let info=ongoingCalls.get(userId) || ongoingCalls.get(to);
+        let cid = info?.callId || clientCallId;
+        let caller = info?.caller;
+        let receiver = info?.receiver;
+        let ct=info?.callType || "audio";
+        let st=info?.startTime;
+        let ans=info?.answeredAt;
+        if((!caller || !receiver) && cid){
+          try{ const { default: CallHistory } = await import("./models/callHistory.model"); const rec:any = await CallHistory.findOne({callId: cid}); if(rec){ caller = rec.caller.toString(); receiver = rec.receiver.toString(); ct = rec.callType; st = rec.startTime; ans = rec.answeredAt; }}catch{}
+        }
+        if(!caller || !receiver){
+          // Fallback: assume still original: use info or infer caller is initial caller (to if we are receiver)
+          // Best fallback without DB is to use stored caller if any, otherwise assume userId was callee ending -> caller=to
+          caller = caller || info?.caller || to;
+          receiver = receiver || info?.receiver || userId;
+        }
         // Only create completed if call was answered, else cancelled
         let status: any = ans ? "completed" : "cancelled";
         let dur = 0;
         if(ans){
           dur = Math.max(0, Math.floor((Date.now() - ans.getTime())/1000));
-          // ensure at least 1 sec for very short completed call
           if(dur===0) dur = 1;
         }
-        logCall({ callId: cid, caller, receiver, callType: ct as any, status, startTime: st, answeredAt: ans, endTime: new Date(), duration: dur });
+        await logCall({ callId: cid, caller, receiver, callType: ct as any, status, startTime: st || new Date(), answeredAt: ans, endTime: new Date(), duration: dur });
       }catch{}
       ongoingCalls.delete(userId);
       ongoingCalls.delete(to);
     });
 
-    socket.on("call-missed", ({ to }) => {
+    socket.on("call-missed", async ({ to, callId: clientCallId }) => {
       if (!to) return;
 
       const toSocketId = onlineUsers.get(to);
       if (toSocketId) {
-        io.to(toSocketId).emit("call-missed", { from: userId });
+        io.to(toSocketId).emit("call-missed", { from: userId, callId: clientCallId });
       }
       try{
-        const info=ongoingCalls.get(userId) || ongoingCalls.get(to);
-        // Only mark missed if never answered
+        let info=ongoingCalls.get(userId) || ongoingCalls.get(to);
         if(info?.answeredAt) return;
-        const cid=info?.callId;
-        const caller=info?.caller || userId;
-        const receiver=info?.receiver || to;
+        let cid=info?.callId || clientCallId;
+        let caller=info?.caller;
+        let receiver=info?.receiver;
+        if((!caller || !receiver) && cid){
+          try{ const { default: CallHistory } = await import("./models/callHistory.model"); const rec:any = await CallHistory.findOne({callId: cid}); if(rec){ caller = rec.caller.toString(); receiver = rec.receiver.toString(); }}catch{}
+        }
+        if(!caller) caller = info?.caller || userId;
+        if(!receiver) receiver = info?.receiver || to;
         const ct=info?.callType || "audio";
         const st=info?.startTime || new Date();
-        logCall({ callId: cid, caller, receiver, callType: ct as any, status: "missed", startTime: st, endTime: new Date(), duration: 0 });
+        await logCall({ callId: cid, caller, receiver, callType: ct as any, status: "missed", startTime: st, endTime: new Date(), duration: 0 });
       }catch{}
       ongoingCalls.delete(userId);
       ongoingCalls.delete(to);
 
+    });
+
+    // Group call handling (minimal, history-focused, preserves 1-1)
+    socket.on("group-call-start", async ({ groupId, type }) => {
+      try{
+        const { default: GroupChat } = await import("./models/groupChat.model");
+        const g:any = await GroupChat.findOne({ _id: groupId, members: userId });
+        if(!g) return;
+        const callId = `${groupId}_${userId}_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
+        // store as ongoing for duration calc (reuse ongoingCalls map with groupId as partner)
+        ongoingCalls.set(userId, { partnerId: groupId, callId, caller: userId, receiver: groupId, startTime: new Date(), callType: type||"audio", groupId } as any);
+        // notify other members
+        for(const mem of g.members){
+          const mid = mem.toString();
+          if(mid===userId) continue;
+          const sid = onlineUsers.get(mid);
+          if(sid) io.to(sid).emit("incoming-group-call", { groupId, callId, from: userId, type: type||"audio", groupName: g.name });
+        }
+        socket.emit("group-call-started", { groupId, callId });
+      }catch{}
+    });
+    socket.on("group-call-end", async ({ groupId, callId: clientCallId, duration }) => {
+      try{
+        const info:any = ongoingCalls.get(userId);
+        const cid = info?.callId || clientCallId || `${groupId}_${userId}_${Date.now()}`;
+        const ans = info?.answeredAt || info?.startTime;
+        let dur = duration;
+        if(!dur && ans) dur = Math.max(0, Math.floor((Date.now() - new Date(ans).getTime())/1000)) || 1;
+        if(!dur) dur = 0;
+        const status = dur>0 ? "completed" : "cancelled";
+        await logCall({ callId: cid, caller: userId, receiver: groupId, groupId, isGroupCall: true, callType: (info?.callType as any)||"audio", status: status as any, startTime: info?.startTime || new Date(), answeredAt: ans, endTime: new Date(), duration: dur });
+        ongoingCalls.delete(userId);
+        const { default: GroupChat } = await import("./models/groupChat.model");
+        const g:any = await GroupChat.findById(groupId);
+        if(g){
+          for(const mem of g.members){
+            const mid = mem.toString();
+            const sid = onlineUsers.get(mid);
+            if(sid) io.to(sid).emit("group-call-ended", { groupId, callId: cid });
+          }
+        }
+      }catch{}
     });
 
     socket.on("ice-candidate", ({ to, candidate }) => {

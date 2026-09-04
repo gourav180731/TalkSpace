@@ -43,6 +43,22 @@ export default function DashboardPage() {
     }
   }, [searchParams, setSearchParams]);
 
+  useEffect(()=>{
+    const onOpenDirect = (e:any)=>{
+      const u=e.detail;
+      if(u && u._id) setSelectedChat({ _id: u._id, username: u.username, avatar: u.avatar, isGroup:false });
+    };
+    const onGroupLeft = (e:any)=>{
+      if(selectedChat && selectedChat.isGroup && selectedChat._id === e.detail) setSelectedChat(null);
+    };
+    window.addEventListener("open-direct-chat" as any, onOpenDirect as any);
+    window.addEventListener("group-left" as any, onGroupLeft as any);
+    return ()=>{
+      window.removeEventListener("open-direct-chat" as any, onOpenDirect as any);
+      window.removeEventListener("group-left" as any, onGroupLeft as any);
+    };
+  },[selectedChat]);
+
   return (
     <div className="min-h-screen relative overflow-hidden bg-[#0b0d12] dark:bg-[#0b0d12]">
       {/* Ambient glows spec 4 */}

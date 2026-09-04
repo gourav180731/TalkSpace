@@ -320,7 +320,7 @@ export default function CallWindow() {
 
   const handleReject = () => {
     callSocket.stopAllAudio();
-    socket.emit("reject-call", { to: callSocket.incomingCall.from });
+    socket.emit("reject-call", { to: callSocket.incomingCall.from, callId: callSocket.incomingCall.callId || (callSocket as any).currentCallId });
     callSocket.setIncomingCall(null);
     callSocket.setCallStatus("idle");
   };

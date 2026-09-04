@@ -7,6 +7,8 @@ export interface ICallHistory extends Document {
   callId?: string;
   caller: Types.ObjectId;
   receiver: Types.ObjectId;
+  groupId?: Types.ObjectId;
+  isGroupCall?: boolean;
   callType: CallType;
   status: CallStatus;
   startTime?: Date;
@@ -20,7 +22,9 @@ export interface ICallHistory extends Document {
 const callHistorySchema = new Schema<ICallHistory>({
   callId: { type: String, index: true, sparse: true },
   caller: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
-  receiver: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+  receiver: { type: Schema.Types.ObjectId, ref: "User", index: true, sparse: true },
+  groupId: { type: Schema.Types.ObjectId, ref: "GroupChat", index: true, sparse: true },
+  isGroupCall: { type: Boolean, default: false, index: true },
   callType: { type: String, enum: ["audio","video"], required: true },
   status: { type: String, enum: ["missed","rejected","completed","cancelled","incoming","outgoing"], required: true },
   startTime: { type: Date },

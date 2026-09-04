@@ -3,6 +3,8 @@ import { Info, Search, CheckSquare, BellOff, Clock, Lock, Heart, Download, X, Li
 import { muteChat, unmuteChat } from "../../apis/chatManagement.api";
 import { axiosInstance } from "../../apis/axios";
 import { setChatWallpaper } from "../../apis/settings.api";
+import { socket } from "../../apis/socket";
+import { useGlobalCall } from "../../context/CallContext";
 
 export default function ChatHeaderMenu({ chat, onSearch, onSelectMode, onCloseChat, onContactInfo, onWallpaperChange, onShowCallHistory }: any) {
   const [open, setOpen] = useState(false);
@@ -10,6 +12,7 @@ export default function ChatHeaderMenu({ chat, onSearch, onSelectMode, onCloseCh
   const [showWallpaperSub, setShowWallpaperSub] = useState(false);
   const chatId = chat._id;
   const isGroup = !!chat.isGroup;
+  const callCtx = useGlobalCall();
 
   useEffect(()=>{
     const close=()=> setOpen(false);
@@ -77,7 +80,17 @@ export default function ChatHeaderMenu({ chat, onSearch, onSelectMode, onCloseCh
   const handleReport = async()=>{ const reason=prompt("Reason for report?")||"spam"; await axiosInstance.post("/chat-management/report", { chatId, reason }); alert("Reported"); setOpen(false); };
   const handleCallLink = async()=>{ const link = `${window.location.origin}/call/${chatId}-${Date.now()}`; await navigator.clipboard.writeText(link); alert(`Call link copied: ${link}`); setOpen(false); };
   const handleSchedule = async()=>{ const time=prompt("Schedule time (e.g., 2026-09-01 10:00)"); if(time) alert(`Call scheduled for ${time} — reminder will be sent`); setOpen(false); };
-  const handleNewGroupCall = async()=>{ alert("Starting new group call..."); setOpen(false); };
+  const handleNewGroupCall = async()=>{
+    if(isGroup){
+      socket.emit("group-call-start", { groupId: chat._id, type: "video" });
+      callCtx.setCallUser({ _id: chat._id, username: chat.username || chat.group?.name || "Group", avatar: chat.avatar || chat.group?.avatar, isGroup:true });
+      callCtx.setCallType("video");
+      callCtx.setCallStatus("calling");
+    } else {
+      alert("Starting new group call... Select a group first.");
+    }
+    setOpen(false);
+  };
   const handleWallpaperPreset = async(value:string, label:string)=>{
     const fd=new FormData(); fd.append("wallpaper", JSON.stringify({type:"preset", value}));
     try{ await setChatWallpaper(chatId, fd); onWallpaperChange?.(value); alert(`Wallpaper: ${label}`); }catch(e:any){ alert(e.response?.data?.msg||"Failed"); }

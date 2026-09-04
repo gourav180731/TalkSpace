@@ -1,17 +1,38 @@
-import { ArrowLeft, Phone, Video, Users } from "lucide-react";
+import { ArrowLeft, Phone, Video, Users, LogOut } from "lucide-react";
 import { usePresence } from "../../context/PresenceContext";
 import { useGlobalCall } from "../../context/CallContext";
+import { useAuth } from "../../context/AuthContext";
 import ChatHeaderMenu from "./ChatHeaderMenu";
 import { useState } from "react";
+import { leaveGroup } from "../../apis/group.api";
 
 export default function ChatHeader({ user, onBack, onSearch, onSelectMode, onCloseChat, onContactInfo, onWallpaperChange }: any) {
   const [showGroupInfo,setShowGroupInfo]=useState(false);
   const { onlineUsers, lastSeen } = usePresence();
+  const { user: currentUser } = useAuth();
   const callSocket = useGlobalCall();
   const isOnline = onlineUsers.has(user._id);
 
   const isGroup = !!user.isGroup;
   const group = user.group || user;
+
+  const getMemberId = (m:any) => {
+    if(!m) return "";
+    if(typeof m === 'string') return m;
+    if(m._id) return m._id.toString();
+    return String(m);
+  };
+  const getMemberName = (m:any) => {
+    if(!m) return "Unknown";
+    if(typeof m === 'string') return m.slice(-6);
+    return m.username || (m.firstName ? `${m.firstName} ${m.lastName||''}`.trim() : "") || getMemberId(m).slice(-6) || "User";
+  };
+  const getMemberAvatar = (m:any) => {
+    if(!m || typeof m === 'string') return `https://ui-avatars.com/api/?name=${getMemberName(m)}`;
+    return m.avatar || `https://ui-avatars.com/api/?name=${getMemberName(m)}`;
+  };
+  const isMemberOnline = (m:any) => onlineUsers.has(getMemberId(m));
+  const onlineCount = isGroup ? group.members?.filter((m:any)=> isMemberOnline(m)).length || 0 : 0;
   return (
     <>
     <div className="z-20 flex items-center gap-3 px-4 py-3 bg-[#121520]/60 backdrop-blur-xl border-b border-white/10 dark:bg-[#121520]/60 dark:border-white/10">
@@ -47,7 +68,7 @@ export default function ChatHeader({ user, onBack, onSearch, onSelectMode, onClo
       <div className="flex flex-col min-w-0 cursor-pointer" onClick={()=> isGroup && setShowGroupInfo(true)}>
         <span className="text-white font-semibold truncate flex items-center gap-1">{isGroup ? group.name||user.username : user.username} {isGroup && <Users size={12} className="opacity-50"/>}</span>
         <span className="text-xs text-white/60 truncate">
-          {isGroup ? `${group.members?.length||0} members${group.members?.filter((m:any)=> onlineUsers.has(m.toString()||m)).length ? ` · ${group.members?.filter((m:any)=> onlineUsers.has(m.toString()||m)).length} online` : ""}` :
+          {isGroup ? `${group.members?.length||0} members${onlineCount ? ` · ${onlineCount} online` : ""}` :
           callSocket.callStatus === "calling"
             ? "📡 Calling..."
             : callSocket.callStatus === "connected"
@@ -65,7 +86,20 @@ export default function ChatHeader({ user, onBack, onSearch, onSelectMode, onClo
       {/* ACTIONS - Voice/Video directly visible, rest in 3-dot */}
       <div className="ml-auto flex items-center gap-1 shrink-0">
         <button
-          onClick={() => { if (callSocket.callStatus === "idle") user.onCall?.("audio"); }}
+          onClick={() => {
+            if (callSocket.callStatus !== "idle") return;
+            if (isGroup) {
+              import("../../apis/socket").then(({socket})=>{
+                socket.emit("group-call-start", { groupId: group._id, type: "audio" });
+                // Optimistically show call UI as group audio
+                callSocket.setCallUser({ _id: group._id, username: group.name, avatar: group.avatar, isGroup:true });
+                callSocket.setCallType("audio");
+                callSocket.setCallStatus("calling");
+              });
+            } else {
+              user.onCall?.("audio");
+            }
+          }}
           className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-white/10 hover:bg-white/15 border border-white/10 flex items-center justify-center text-white transition shrink-0"
           title="Voice call"
           aria-label="Voice call"
@@ -73,7 +107,19 @@ export default function ChatHeader({ user, onBack, onSearch, onSelectMode, onClo
           <Phone size={16} className="md:w-[18px] md:h-[18px]" />
         </button>
         <button
-          onClick={() => { if (callSocket.callStatus === "idle") user.onCall?.("video"); }}
+          onClick={() => {
+            if (callSocket.callStatus !== "idle") return;
+            if (isGroup) {
+              import("../../apis/socket").then(({socket})=>{
+                socket.emit("group-call-start", { groupId: group._id, type: "video" });
+                callSocket.setCallUser({ _id: group._id, username: group.name, avatar: group.avatar, isGroup:true });
+                callSocket.setCallType("video");
+                callSocket.setCallStatus("calling");
+              });
+            } else {
+              user.onCall?.("video");
+            }
+          }}
           className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-white/10 hover:bg-white/15 border border-white/10 flex items-center justify-center text-white transition shrink-0"
           title="Video call"
           aria-label="Video call"
@@ -89,23 +135,40 @@ export default function ChatHeader({ user, onBack, onSearch, onSelectMode, onClo
             <div className="flex flex-col items-center gap-3 mb-4">
               <img src={group.avatar||"/avatar-placeholder.png"} className="w-20 h-20 rounded-full object-cover border-2 border-indigo-500/30" alt="group"/>
               <h3 className="text-white font-semibold text-lg">{group.name}</h3>
-              <p className="text-white/60 text-xs">{group.members?.length||0} members · {group.members?.filter((m:any)=> onlineUsers.has(m.toString()||m)).length||0} online</p>
+              <p className="text-white/60 text-xs">{group.members?.length||0} members · {onlineCount} online</p>
               {group.description && <p className="text-white/70 text-sm text-center mt-1">{group.description}</p>}
             </div>
             <div className="space-y-2 max-h-64 overflow-auto">
               <h4 className="text-indigo-400 font-semibold text-sm flex items-center gap-2"><Users size={16}/> Members</h4>
               {(group.members||[]).map((m:any, i:number)=>{
-                const mid=m.toString ? m.toString() : m._id ? m._id.toString() : String(m);
-                const isAdmin=group.admins?.some((a:any)=> a.toString()===mid);
-                const isOnline=onlineUsers.has(mid);
-                return <div key={mid+i} className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5">
-                  <div className="relative"><div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs text-white">{mid.slice(-2)}</div>{isOnline && <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 border-2 border-[#121520] rounded-full"/>}</div>
-                  <span className="text-white text-sm flex-1 truncate">{mid}</span>
+                const mid=getMemberId(m);
+                const name=getMemberName(m);
+                const avatar=getMemberAvatar(m);
+                const isAdmin=group.admins?.some((a:any)=> getMemberId(a)===mid);
+                const isOnline=isMemberOnline(m);
+                const isMe = currentUser?._id && mid === currentUser._id.toString();
+                return <div key={mid+i} onClick={()=>{
+                  if(isMe) return;
+                  // Open direct chat with member (WhatsApp-like)
+                  window.dispatchEvent(new CustomEvent("open-direct-chat", {detail: { _id: mid, username: name, avatar }}));
+                  setShowGroupInfo(false);
+                }} className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 cursor-pointer">
+                  <div className="relative"><img src={avatar} className="w-8 h-8 rounded-full object-cover border border-white/10" alt={name} onError={(e)=>{(e.target as HTMLImageElement).src=`https://ui-avatars.com/api/?name=${name}`}} />{isOnline && <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 border-2 border-[#121520] rounded-full"/>}</div>
+                  <span className="text-white text-sm flex-1 truncate">{name} {isMe && <span className="text-white/40 text-xs">(You)</span>}</span>
                   {isAdmin && <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-600 text-white">Admin</span>}
                 </div>
               })}
             </div>
-            <button onClick={()=> setShowGroupInfo(false)} className="w-full mt-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm">Close</button>
+            <button onClick={async()=>{
+              if(!confirm(`Leave group "${group.name}"? You will no longer receive messages.`)) return;
+              try{
+                await leaveGroup(group._id);
+                window.dispatchEvent(new CustomEvent("group-left", {detail: group._id}));
+                setShowGroupInfo(false);
+                onBack?.();
+              }catch(e:any){ alert(e.response?.data?.msg || "Failed to leave group"); }
+            }} className="w-full mt-3 py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/20 text-rose-300 text-sm flex items-center justify-center gap-2"><LogOut size={16}/> Leave Group</button>
+            <button onClick={()=> setShowGroupInfo(false)} className="w-full mt-2 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm">Close</button>
           </div>
         </div>
       )}

@@ -6,8 +6,10 @@ import { getChatId } from "../../utils/constants";
 import { getIO } from "../../socketEmitter";
 
 export const logCall = async (data: {
-  caller: string;
-  receiver: string;
+  caller?: string;
+  receiver?: string;
+  groupId?: string;
+  isGroupCall?: boolean;
   callType: "audio"|"video";
   status: "missed"|"rejected"|"completed"|"cancelled"|"incoming"|"outgoing";
   startTime?: Date;
@@ -17,7 +19,7 @@ export const logCall = async (data: {
   callId?: string;
 }) => {
   try{
-    const { caller, receiver, callType, status, startTime, answeredAt, endTime, duration, callId } = data;
+    const { caller, receiver, callType, status, startTime, answeredAt, endTime, duration, callId, groupId, isGroupCall } = data as any;
     // Idempotent by callId if provided
     if(callId){
       const existing = await CallHistory.findOne({ callId });
@@ -29,17 +31,18 @@ export const logCall = async (data: {
         if(typeof duration === "number") existing.duration = duration;
         // keep original startTime/caller/receiver/type unless overridden
         await existing.save();
-        await createCallMessage({ callId, caller, receiver, callType, status: status as any, duration: existing.duration||0, startTime: existing.startTime });
+        await createCallMessage({ callId, caller, receiver, groupId, isGroupCall, callType, status: status as any, duration: existing.duration||0, startTime: existing.startTime });
         return existing;
       }
-      const record = await CallHistory.create({
-        callId, caller, receiver, callType, status,
+      const record:any = await CallHistory.create({
+        callId, caller, receiver: receiver || undefined, groupId: groupId || undefined, isGroupCall: !!isGroupCall,
+        callType, status,
         startTime: startTime || new Date(),
         answeredAt,
         endTime: endTime || (status==="missed"||status==="rejected"||status==="cancelled" ? new Date() : undefined),
         duration: duration ?? 0,
-      });
-      await createCallMessage({ callId, caller, receiver, callType, status: status as any, duration: record.duration||0, startTime: record.startTime });
+      } as any);
+      await createCallMessage({ callId, caller, receiver, groupId, isGroupCall, callType, status: status as any, duration: (record as any).duration||0, startTime: (record as any).startTime });
       return record;
     }
     // fallback dedup for legacy without callId
@@ -59,10 +62,45 @@ export const logCall = async (data: {
   }catch(e){ console.error("logCall error", e); }
 };
 
-const createCallMessage = async (data: { callId?: string; caller: string; receiver: string; callType: "audio"|"video"; status: string; duration: number; startTime?: Date }) => {
+const createCallMessage = async (data: { callId?: string; caller: string; receiver: string; groupId?: string; isGroupCall?: boolean; callType: "audio"|"video"; status: string; duration: number; startTime?: Date }) => {
   try{
-    const { callId, caller, receiver, callType, status, duration } = data;
+    const { callId, caller, receiver, groupId, isGroupCall, callType, status, duration } = data as any;
     if(!callId) return;
+    // Group call footprint goes to GroupChat, not MessageModal
+    if(isGroupCall && groupId){
+      try{
+        const { default: GroupChat } = await import("../../models/groupChat.model");
+        const g:any = await GroupChat.findById(groupId);
+        if(!g) return;
+        // Avoid duplicate
+        const exists = (g.messages||[]).some((m:any)=> m.callId===callId);
+        if(exists){
+          // update existing
+          g.messages = g.messages.map((m:any)=> m.callId===callId ? {...m.toObject?m.toObject():m, callStatus: status, callDuration: duration, callType } : m);
+          await g.save();
+        } else {
+          const durText = duration ? `${Math.floor(duration/60)>0 ? Math.floor(duration/60)+' min' : duration+' sec'}` : '';
+          let text = "";
+          if(status==="completed") text = `Group ${callType} call · ${durText || "0 sec"}`;
+          else if(status==="missed") text = `Missed group ${callType} call`;
+          else if(status==="rejected") text = `Rejected group ${callType} call`;
+          else text = `Group ${callType} call · ${status}`;
+          g.messages.push({ senderId: new Types.ObjectId(caller), text, messageType:"call", callId, callType, callStatus: status, callDuration: duration, createdAt: new Date() } as any);
+          await g.save();
+        }
+        try{
+          const io=getIO();
+          const { onlineUsers } = await import("../../socket");
+          // broadcast to all group members
+          for(const mem of g.members){
+            const mid = mem.toString();
+            const sid = onlineUsers.get(mid);
+            if(sid) io.to(sid).emit("group-message", { groupId, message: g.messages[g.messages.length-1] });
+          }
+        }catch{}
+        return;
+      }catch(e){ console.error("group createCallMessage error", e); return; }
+    }
     // Avoid duplicate call message per callId
     const existingMsg = await MessageModal.findOne({ callId, messageType: "call" });
     if(existingMsg){
@@ -121,10 +159,36 @@ export const getGlobalHistory = async (req:Request,res:Response)=>{
     const page=parseInt(req.query.page as string)||1;
     const limit=20;
     const skip=(page-1)*limit;
-    const histories=await CallHistory.find({
-      $or: [{ caller: userId }, { receiver: userId }]
-    }).populate("caller","username avatar").populate("receiver","username avatar").sort({createdAt:-1}).skip(skip).limit(limit).lean();
+    // Include direct and group calls where user is member
+    const { default: GroupChat } = await import("../../models/groupChat.model");
+    const userGroups:any = await GroupChat.find({ members: userId }).select("_id").lean();
+    const groupIds = userGroups.map((g:any)=> g._id);
+    const or:any[] = [{ caller: userId }, { receiver: userId }];
+    if(groupIds.length>0) or.push({ groupId: { $in: groupIds }, isGroupCall: true });
+    const histories=await CallHistory.find({ $or: or })
+      .populate("caller","username avatar")
+      .populate("receiver","username avatar")
+      .populate("groupId","name avatar")
+      .sort({createdAt:-1}).skip(skip).limit(limit).lean();
     const mapped=histories.map((h:any)=>{
+      const isGroup = !!h.isGroupCall && !!h.groupId;
+      if(isGroup){
+        const group = h.groupId;
+        const isOutgoing = h.caller?._id ? h.caller._id.toString()===userId : h.caller.toString()===userId;
+        return {
+          _id:h._id,
+          other: group || { username: "Group", avatar: "" },
+          groupId: h.groupId,
+          isGroupCall: true,
+          callType:h.callType,
+          status:h.status,
+          direction: isOutgoing ? "outgoing" : "incoming",
+          startTime:h.startTime,
+          endTime:h.endTime,
+          duration:h.duration,
+          createdAt:h.createdAt,
+        };
+      }
       const callerId = h.caller?._id ? h.caller._id.toString() : h.caller.toString();
       const isOutgoing=callerId===userId;
       const other=isOutgoing ? h.receiver : h.caller;
@@ -152,6 +216,31 @@ export const getChatHistory = async (req:Request,res:Response)=>{
     const page=parseInt(req.query.page as string)||1;
     const limit=20;
     const skip=(page-1)*limit;
+    // Check if otherId is a group the user belongs to
+    try{
+      const { default: GroupChat } = await import("../../models/groupChat.model");
+      const grp:any = await GroupChat.findOne({ _id: otherId, members: userId }).lean();
+      if(grp){
+        const histories=await CallHistory.find({ groupId: otherId, isGroupCall: true }).sort({createdAt:-1}).skip(skip).limit(limit).lean();
+        const mapped=histories.map((h:any)=>{
+          const callerId = h.caller?._id ? h.caller._id.toString() : h.caller.toString();
+          const isOutgoing=callerId===userId;
+          return {
+            _id:h._id,
+            callType:h.callType,
+            status:h.status,
+            direction: isOutgoing ? "outgoing" : "incoming",
+            isGroupCall: true,
+            groupId: h.groupId,
+            startTime:h.startTime,
+            endTime:h.endTime,
+            duration:h.duration,
+            createdAt:h.createdAt,
+          };
+        });
+        return res.json({success:true, history: mapped});
+      }
+    }catch{}
     const histories=await CallHistory.find({
       $or: [
         { caller: userId, receiver: otherId },
