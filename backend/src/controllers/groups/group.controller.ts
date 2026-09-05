@@ -219,10 +219,18 @@ export const sendGroupMessage = async (req:Request,res:Response)=>{
       const ms=map[(g as any).disappearingDuration]; if(ms) expiresAt=new Date(Date.now()+ms);
     }
     const msg:any={ senderId:userId, text, file:fileUrl, mimeType, clientId, replyTo: replyTo||undefined, reactions:[], isDeleted:false, deletedFor:[], status:"sent", isEdited:false, editHistory:[], expiresAt};
-    g.messages.push(msg); await g.save(); const saved=g.messages[g.messages.length-1];
-    emitToMembers(g.members as any, "group-message",{groupId:g._id, message:saved});
-    emitToGroupRoom(g._id.toString(), "group-message",{groupId:g._id, message:saved});
-    return res.status(201).json({success:true, message:saved});
+    g.messages.push(msg); await g.save(); const rawSaved:any=g.messages[g.messages.length-1];
+    // populate sender for realtime display (username not ID)
+    let populated:any = rawSaved;
+    try{
+      const sender:any = await UserMOdel.findById(userId).select("username avatar firstName lastName").lean();
+      const obj = typeof rawSaved.toObject === 'function' ? rawSaved.toObject() : {...rawSaved};
+      if(sender) obj.senderId = sender;
+      populated = obj;
+    }catch{}
+    emitToMembers(g.members as any, "group-message",{groupId:g._id, message:populated});
+    emitToGroupRoom(g._id.toString(), "group-message",{groupId:g._id, message:populated});
+    return res.status(201).json({success:true, message:populated});
   }catch(e){ console.error(e); return res.status(500).json({success:false,msg:"error"});}
 };
 

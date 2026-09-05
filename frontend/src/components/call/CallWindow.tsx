@@ -3,6 +3,7 @@ import { socket } from "../../apis/socket";
 import { useGlobalCall } from "../../context/CallContext";
 import { useAuth } from "../../context/AuthContext";
 import { useCall } from "./hooks/useCall";
+import { useGroup } from "../../context/GroupContext";
 import { PhoneOff, PhoneMissed } from "lucide-react";
 
 /* ─────────────────────────────────────────
@@ -993,11 +994,20 @@ function SpeakerIcon({ muted }: { muted: boolean }) {
   );
 }
 function GroupActiveCallWindow({isVideo,isConnected,remoteName,seconds,fmt,isMuted,isSpeakerMuted,onMute,onSpeaker,onEnd,onMinimize,onFlip}:any){
-  const { localVideoRef, localStreamRef, groupStreamsRef, groupTick } = useGlobalCall() as any;
-  // force re-render on groupTick
+  const { localVideoRef, localStreamRef, groupStreamsRef, groupTick, callUser } = useGlobalCall() as any;
+  const { groups } = useGroup();
+  const { user: me } = useAuth();
+  const groupMembersMap = new Map<string, any>();
+  try{
+    const gid = callUser?._id || callUser?.groupId;
+    const g = groups?.find((x:any)=> String(x._id)===String(gid));
+    if(g?.members) for(const m of g.members){
+      const id = typeof m==="string" ? m : (m._id||(m as any).id||"")?.toString();
+      if(id) groupMembersMap.set(id, m);
+    }
+  }catch{}
   const [, setRenderTick]=useState(0);
   useEffect(()=>{ setRenderTick(v=>v+1); },[groupTick]);
-  // attach local
   useEffect(()=>{
     if(localStreamRef?.current && localVideoRef.current){
       localVideoRef.current.srcObject = localStreamRef.current;
@@ -1006,8 +1016,20 @@ function GroupActiveCallWindow({isVideo,isConnected,remoteName,seconds,fmt,isMut
     }
   },[localVideoRef, isConnected]);
   const streams: Array<[string, MediaStream]> = groupStreamsRef ? Array.from(groupStreamsRef.current.entries()) as any : [];
-  const total = streams.length + 1; // + local
-  // create refs map for remote videos
+  const total = streams.length + 1;
+  const getName = (uid:string)=>{
+    const m = groupMembersMap.get(uid);
+    if(m){
+      if(typeof m==="string") return m.slice(-6);
+      return m.username || m.name || (m.firstName? `${m.firstName} ${m.lastName||""}`.trim():"") || uid.slice(-6);
+    }
+    return uid.slice(-6);
+  };
+  const getAvatar = (uid:string)=>{
+    const m = groupMembersMap.get(uid);
+    if(m && typeof m!=="string") return m.avatar;
+    return null;
+  };
   const tileRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
   useEffect(()=>{
     for(const [pid, stream] of streams){
@@ -1034,30 +1056,32 @@ function GroupActiveCallWindow({isVideo,isConnected,remoteName,seconds,fmt,isMut
           {isVideo ? (
             <video ref={localVideoRef} autoPlay muted playsInline style={{width:"100%", height:"100%", objectFit:"cover"}} />
           ) : (
-            <div style={{width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center", background:"linear-gradient(135deg,#1c1511,#0f1d1a)"}}>
-              <div style={{width:64, height:64, borderRadius:"50%", background:"rgba(255,255,255,0.1)", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff"}}>You</div>
+            <div style={{width:"100%", height:"100%", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:"linear-gradient(135deg,#1c1511,#0f1d1a)", gap:8}}>
+              {me?.avatar ? <img src={me.avatar} className="w-16 h-16 rounded-full object-cover border border-white/20" alt={me?.username} /> : <div style={{width:64, height:64, borderRadius:"50%", background:"rgba(255,255,255,0.1)", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff"}}>{(me?.username||"You").slice(0,2).toUpperCase()}</div>}
+              <span style={{color:"#fff", fontSize:12, fontWeight:600}}>{me?.username||"You"}</span>
             </div>
           )}
-          <span style={{position:"absolute", bottom:6, left:6, background:"rgba(0,0,0,0.6)", color:"#fff", fontSize:10, padding:"2px 6px", borderRadius:6}}>You {isMuted?"🔇":""}</span>
+          <span style={{position:"absolute", bottom:6, left:6, background:"rgba(0,0,0,0.7)", color:"#fff", fontSize:11, fontWeight:600, padding:"3px 8px", borderRadius:8}}>{me?.username||"You"} {isMuted?"🔇":""}</span>
         </div>
         {/* Remote tiles */}
         {streams.map(([pid, stream]:any)=>{
           const isAudioOnly = stream.getVideoTracks().length===0 || !isVideo;
+          const name = getName(pid);
+          const avatar = getAvatar(pid);
           return (
             <div key={pid} style={{position:"relative", background:"#0a0a0a", borderRadius:12, overflow:"hidden", border:"2px solid rgba(255,255,255,0.12)"}}>
               {isAudioOnly ? (
                 <div style={{width:"100%", height:"100%", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:"linear-gradient(135deg,#1e1a2e,#0f1d1a)", gap:8}}>
-                  <div style={{width:56, height:56, borderRadius:"50%", background:"rgba(99,102,241,0.3)", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontWeight:600}}>{pid.slice(-4).toUpperCase()}</div>
-                  <span style={{color:"rgba(255,255,255,0.6)", fontSize:11}}>{pid.slice(0,6)}…</span>
+                  {avatar ? <img src={avatar} className="w-14 h-14 rounded-full object-cover border border-white/20" alt={name} /> : <div style={{width:56, height:56, borderRadius:"50%", background:"rgba(99,102,241,0.3)", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontWeight:600}}>{name.slice(0,2).toUpperCase()}</div>}
+                  <span style={{color:"#fff", fontSize:12, fontWeight:600}}>{name}</span>
                   <span style={{color:"#4ade80", fontSize:10, display:"flex", alignItems:"center", gap:4}}><span style={{width:6,height:6,borderRadius:"50%", background:"#22c55e", display:"inline-block"}}/> connected</span>
                   <audio autoPlay playsInline ref={(el:any)=>{ if(el && el.srcObject!==stream){ el.srcObject=stream; el.play().catch(()=>{}); }}} style={{display:"none"}} />
                 </div>
               ) : (
                 <video ref={(el:any)=>{ if(el){ tileRefs.current.set(pid, el); if(el.srcObject!==stream){ el.srcObject=stream; el.play().catch(()=>{}); }}}} autoPlay playsInline style={{width:"100%", height:"100%", objectFit:"cover"}} />
               )}
-              {/* hidden audio for video tiles */}
-              <audio autoPlay playsInline ref={(el:any)=>{ if(el && stream.getAudioTracks().length>0 && el.srcObject!==stream){ el.srcObject=stream; el.play().catch(()=>{}); }}} style={{position:"absolute", opacity:0, pointerEvents:"none", width:0, height:0}} />
-              <span style={{position:"absolute", bottom:6, left:6, background:"rgba(0,0,0,0.6)", color:"#fff", fontSize:10, padding:"2px 6px", borderRadius:6}}>{pid.slice(-6)}</span>
+              {isAudioOnly ? null : <audio autoPlay playsInline ref={(el:any)=>{ if(el && stream.getAudioTracks().length>0 && el.srcObject!==stream){ el.srcObject=stream; el.play().catch(()=>{}); }}} style={{position:"absolute", opacity:0, pointerEvents:"none", width:0, height:0}} />}
+              <span style={{position:"absolute", bottom:6, left:6, background:"rgba(0,0,0,0.7)", color:"#fff", fontSize:11, fontWeight:600, padding:"3px 8px", borderRadius:8, maxWidth:"80%", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{name}</span>
             </div>
           );
         })}

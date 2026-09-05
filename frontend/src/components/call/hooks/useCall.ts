@@ -287,8 +287,15 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
         forceGroupUpdate();
       }catch(e){ console.error("participant joined offer failed", e); }
     };
+    const onGroupParticipantLeft = ({ userId }: any)=>{
+      const peer = groupPeersRef.current.get(userId);
+      if(peer){ try{ peer.close(); }catch{} groupPeersRef.current.delete(userId); }
+      const stream = groupStreamsRef.current.get(userId);
+      if(stream){ try{ stream.getTracks().forEach(t=> t.stop()); }catch{} groupStreamsRef.current.delete(userId); }
+      groupIceQueuesRef.current.delete(userId);
+      forceGroupUpdate();
+    };
     const onGroupEnded = ()=>{
-      // cleanup group peers but keep local stream until explicit end
       for(const [,pc] of groupPeersRef.current){ try{ pc.close(); }catch{} }
       groupPeersRef.current.clear();
       groupStreamsRef.current.clear();
@@ -299,12 +306,14 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
     socket.on("group-call-answer", onGroupAnswer);
     socket.on("group-ice-candidate", onGroupIce);
     socket.on("group-call-participant-joined", onParticipantJoined);
+    socket.on("group-call-participant-left", onGroupParticipantLeft);
     socket.on("group-call-ended", onGroupEnded);
     return ()=>{
       socket.off("group-call-offer", onGroupOffer);
       socket.off("group-call-answer", onGroupAnswer);
       socket.off("group-ice-candidate", onGroupIce);
       socket.off("group-call-participant-joined", onParticipantJoined);
+      socket.off("group-call-participant-left", onGroupParticipantLeft);
       socket.off("group-call-ended", onGroupEnded);
     };
   },[authUser]);

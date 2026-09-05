@@ -39,6 +39,7 @@ export const CallProvider = ({ children }: any) => {
 
   const callStatusRef  = useRef<CallStatus>("idle");
   const currentCallIdRef = useRef<string | null>(null);
+  const callUserRef = useRef<any>(null);
   const timeoutRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ringtoneRef    = useRef<HTMLAudioElement | null>(null);
   const dialtoneRef    = useRef<HTMLAudioElement | null>(null);
@@ -46,6 +47,7 @@ export const CallProvider = ({ children }: any) => {
   // keep ref in sync
   useEffect(() => { callStatusRef.current = callStatus; }, [callStatus]);
   useEffect(() => { currentCallIdRef.current = currentCallId; }, [currentCallId]);
+  useEffect(() => { callUserRef.current = callUser; }, [callUser]);
 
   /* ── audio control ───────────────────────────────────────────────────── */
   const stopAllAudio = () => {
@@ -172,21 +174,23 @@ export const CallProvider = ({ children }: any) => {
       setCallStatus("ringing");
       playRingtone();
     };
-    const onGroupEnded = ({ callId }: any)=>{
+    const onGroupEnded = ({ callId, groupId }: any)=>{
+      // group-call-ended now only emitted when no participants remain; end call for everyone
+      if(groupId && callUserRef.current?.isGroup && String(callUserRef.current?._id) !== String(groupId) && String(callUserRef.current?.groupId) !== String(groupId)) return;
       if(currentCallIdRef.current && callId && currentCallIdRef.current!==callId) return;
       clearMissedTimer(); stopAllAudio();
       setCallStatus("idle"); setIncomingCall(null); setCallUser(null); setActiveCallUserId(null); setCurrentCallId(null); setIsMinimized(false);
       connectedAtRef.current=null;
     };
+    const onGroupParticipantLeft = ({ userId, groupId }: any)=>{
+      // participant left: keep call alive for remaining, useCall will clean peer; if only one left we stay connected
+      console.log("group participant left", userId, groupId);
+    };
     const onGroupStarted = ({ callId }: any)=>{ if(callId) setCurrentCallId(callId); };
     socket.on("incoming-group-call", onIncomingGroup);
     socket.on("group-call-ended", onGroupEnded);
     socket.on("group-call-started", onGroupStarted);
-    // also listen for group participant joined to keep UI ticking (handled in useCall but ensure ended clears)
-    const onGroupParticipantJoined = () => {
-      // no-op, useCall handles mesh; just ensure not idle
-    };
-    socket.on("group-call-participant-joined", onGroupParticipantJoined);
+    socket.on("group-call-participant-left", onGroupParticipantLeft);
 
     return () => {
       socket.off("call-initiated", onInitiated);
@@ -200,6 +204,7 @@ export const CallProvider = ({ children }: any) => {
       socket.off("group-call-ended", onGroupEnded);
       socket.off("group-call-started", onGroupStarted);
       socket.off("group-call-participant-joined");
+      socket.off("group-call-participant-left", onGroupParticipantLeft);
     };
   }, []);
 

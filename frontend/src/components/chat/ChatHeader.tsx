@@ -3,13 +3,17 @@ import { usePresence } from "../../context/PresenceContext";
 import { useGlobalCall } from "../../context/CallContext";
 import { useAuth } from "../../context/AuthContext";
 import ChatHeaderMenu from "./ChatHeaderMenu";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { leaveGroup } from "../../apis/group.api";
 import { useCall } from "../call/hooks/useCall";
 import { useGroup } from "../../context/GroupContext";
 
 export default function ChatHeader({ user, onBack, onSearch, onSelectMode, onCloseChat, onContactInfo, onWallpaperChange }: any) {
   const [showGroupInfo,setShowGroupInfo]=useState(false);
+  const [editingName,setEditingName]=useState(false);
+  const [nameVal,setNameVal]=useState(user.group?.name || user.name || "");
+  const [editingDesc,setEditingDesc]=useState(false);
+  const [descVal,setDescVal]=useState(user.group?.description || user.description || "");
   const { onlineUsers, lastSeen, isSyncing } = usePresence() as any;
   const { user: currentUser } = useAuth();
   const callSocket = useGlobalCall();
@@ -18,6 +22,7 @@ export default function ChatHeader({ user, onBack, onSearch, onSelectMode, onClo
   const { fetchGroups } = useGroup();
   const isGroup = !!user.isGroup;
   const group = user.group || user;
+  useEffect(()=>{ setNameVal(group.name || ""); setDescVal(group.description||""); },[group.name, group.description]);
   const getMemberId = (m:any) => {
     if(!m) return "";
     if(typeof m === 'string') return m;
@@ -175,9 +180,48 @@ export default function ChatHeader({ user, onBack, onSearch, onSelectMode, onClo
                   </label>;
                 })()}
               </div>
-              <h3 className="text-white font-semibold text-lg">{group.name}</h3>
-              <p className="text-white/60 text-xs">{group.members?.length||0} members · {onlineCount} online</p>
-              {group.description && <p className="text-white/70 text-sm text-center mt-1">{group.description}</p>}
+              {(() => {
+                const isAdmin = group.admins?.some((a:any)=> getMemberId(a)===currentUser?._id?.toString());
+                const saveName = async()=>{
+                  if(!nameVal.trim() || nameVal.trim()===group.name){ setEditingName(false); return; }
+                  const fd=new FormData(); fd.append("name", nameVal.trim());
+                  try{ const { updateGroup } = await import("../../apis/group.api"); const res=await updateGroup(group._id, fd); const updated=res.data?.group; if(updated){ group.name=updated.name; } await fetchGroups(); window.dispatchEvent(new CustomEvent("group-settings-updated",{detail:{groupId:group._id, settings:{name:updated?.name}}})); }catch(e:any){ alert(e.response?.data?.msg||"Failed"); }
+                  setEditingName(false);
+                };
+                const saveDesc = async()=>{
+                  const fd=new FormData(); fd.append("description", descVal);
+                  try{ const { updateGroup } = await import("../../apis/group.api"); const res=await updateGroup(group._id, fd); const updated=res.data?.group; if(updated){ group.description=updated.description; } await fetchGroups(); window.dispatchEvent(new CustomEvent("group-settings-updated",{detail:{groupId:group._id, settings:{description:updated?.description}}})); }catch{} setEditingDesc(false);
+                };
+                return <>
+                  <div className="flex items-center gap-2">
+                    {editingName ? (
+                      <div className="flex items-center gap-2">
+                        <input value={nameVal} onChange={e=> setNameVal(e.target.value)} maxLength={30} className="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-white text-sm w-36" autoFocus onKeyDown={e=>{ if(e.key==="Enter") saveName(); if(e.key==="Escape") setEditingName(false); }} />
+                        <button onClick={saveName} className="px-3 py-1 rounded-lg bg-indigo-600 text-white text-xs">Save</button>
+                        <button onClick={()=> setEditingName(false)} className="px-2 py-1 rounded-lg bg-white/10 text-white text-xs">Cancel</button>
+                      </div>
+                    ) : (
+                      <>
+                        <h3 className="text-white font-semibold text-lg">{group.name}</h3>
+                        {isAdmin && <button onClick={()=> setEditingName(true)} className="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/70 text-xs" title="Rename group">✎</button>}
+                      </>
+                    )}
+                  </div>
+                  <p className="text-white/60 text-xs">{group.members?.length||0} members · {onlineCount} online</p>
+                  {editingDesc ? (
+                    <div className="flex items-center gap-2 mt-2 w-full max-w-[260px]">
+                      <input value={descVal} onChange={e=> setDescVal(e.target.value)} placeholder="Group description" className="flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-white text-xs" maxLength={100} onKeyDown={e=>{ if(e.key==="Enter") saveDesc(); }} />
+                      <button onClick={saveDesc} className="px-2 py-1 rounded-lg bg-indigo-600 text-white text-[11px]">Save</button>
+                      <button onClick={()=> setEditingDesc(false)} className="px-2 py-1 rounded-lg bg-white/10 text-white text-[11px]">Cancel</button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 mt-1">
+                      {group.description ? <p className="text-white/70 text-sm text-center">{group.description}</p> : <p className="text-white/40 text-xs italic">{isAdmin ? "No description" : ""}</p>}
+                      {isAdmin && <button onClick={()=> setEditingDesc(true)} className="text-[11px] text-indigo-300 hover:text-indigo-200 underline">{group.description ? "Edit" : "Add description"}</button>}
+                    </div>
+                  )}
+                </>;
+              })()}
               {(() => {
                 const isAdmin = group.admins?.some((a:any)=> getMemberId(a)===currentUser?._id?.toString());
                 if(!isAdmin || !group.avatar) return null;

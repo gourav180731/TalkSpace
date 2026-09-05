@@ -327,13 +327,22 @@ export function initSocket(io: Server) {
         const status = dur > 0 ? "completed" : "cancelled";
         await logCall({ callId: cid, caller: userId, receiver: groupId, groupId, isGroupCall: true, callType: (info?.callType as any) || "audio", status: status as any, startTime: info?.startTime || new Date(), answeredAt: ans, endTime: new Date(), duration: dur });
         ongoingCalls.delete(userId);
+        socket.leave(groupId);
+        // notify remaining participants that this user left, but keep their call alive
+        socket.to(groupId).emit("group-call-participant-left", { groupId, userId, callId: cid });
         const { default: GroupChat } = await import("./models/groupChat.model");
         const g: any = await GroupChat.findById(groupId);
         if (g) {
           for (const mem of g.members) {
             const mid = mem.toString();
-            emitToUser(io, mid, "group-call-ended", { groupId, callId: cid });
+            if (mid === userId) continue;
+            emitToUser(io, mid, "group-call-participant-left", { groupId, userId, callId: cid });
           }
+        }
+        // check if no one remains in call, then optionally broadcast ended to group
+        const remaining = g ? g.members.filter((m: any) => ongoingCalls.has(m.toString()) && (ongoingCalls.get(m.toString()) as any)?.partnerId === groupId) : [];
+        if (remaining.length === 0) {
+          io.to(groupId).emit("group-call-ended", { groupId, callId: cid });
         }
       } catch {}
     });
