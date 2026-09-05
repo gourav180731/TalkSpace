@@ -39,6 +39,8 @@ export const resetPasswordApi = (data: {
 };
 
 
+export const changePasswordApi = (data:{ currentPassword:string, newPassword:string })=> axiosInstance.post("/auth/change-password", data);
+export const changeEmailApi = (data:{ newEmail:string, password:string })=> axiosInstance.post("/auth/change-email", data);
 export const logoutApi = () => {
   return axiosInstance.post(
     "/auth/logout",

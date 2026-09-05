@@ -46,6 +46,19 @@ export interface IUserSettings extends Document {
   // Storage
   mediaCacheSize: number; // bytes
   lastCacheClear?: Date;
+
+  // Additional chat settings
+  keepChatsArchived: boolean;
+  mediaVisibility: boolean;
+  stickerSuggestions: boolean;
+  voiceTranscriptEnabled: boolean;
+
+  // Account / security
+  securityNotifications: boolean;
+  twoStepEnabled: boolean;
+
+  // Language
+  language: string;
   
   createdAt: Date;
   updatedAt: Date;
@@ -95,6 +108,13 @@ const userSettingsSchema = new mongoose.Schema<IUserSettings>(
       enum: ["low", "medium", "high"],
       default: "medium",
     },
+    keepChatsArchived: { type: Boolean, default: false },
+    mediaVisibility: { type: Boolean, default: true },
+    stickerSuggestions: { type: Boolean, default: true },
+    voiceTranscriptEnabled: { type: Boolean, default: false },
+    securityNotifications: { type: Boolean, default: true },
+    twoStepEnabled: { type: Boolean, default: false },
+    language: { type: String, default: "en" },
     chatCustomizations: [
       {
         chatId: { type: String, required: true },

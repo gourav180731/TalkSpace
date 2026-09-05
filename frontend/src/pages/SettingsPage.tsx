@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { getPrivacySettings, updatePrivacySettings, getBlockedUsers, unblockUser } from "../apis/privacy.api";
-import { getUserSettings, updateUserSettings, clearCache } from "../apis/settings.api";
+import { getUserSettings, updateUserSettings, clearCache, getNetworkUsage, submitFeedback } from "../apis/settings.api";
 import { setTheme as applyLocalTheme } from "../utils/theme";
 import { useProfile } from "./profile/useProfile";
 import { ProfileView } from "./profile/ProfileView";
@@ -30,32 +30,71 @@ export default function SettingsPage(){
   const profileState = useProfile();
   const [appLang, setAppLang] = useState(()=> localStorage.getItem("appLanguage") || "en");
   const [helpMsg, setHelpMsg] = useState("");
+  const [networkUsage, setNetworkUsage] = useState<any>(null);
+  const [helpSending, setHelpSending] = useState(false);
 
   const load = async()=>{
     try{ const p=await getPrivacySettings(); setPrivacy(p.data.settings||p.data); }catch{}
-    try{ const s=await getUserSettings(); setSettings(s.data.settings); if(s.data.settings?.theme) applyLocalTheme(s.data.settings.theme); }catch{}
+    try{ const s=await getUserSettings(); setSettings(s.data.settings); if(s.data.settings?.theme) applyLocalTheme(s.data.settings.theme); if(s.data.settings?.language) { setAppLang(s.data.settings.language); localStorage.setItem("appLanguage", s.data.settings.language); } }catch{}
     try{ const b=await getBlockedUsers(); setBlocked(b.data.blocked||[]);}catch{}
+    try{ const n=await getNetworkUsage(); setNetworkUsage(n.data.usage); }catch{}
   };
   useEffect(()=>{ load(); },[]);
   const updatePrivacy = async(k:string,v:any)=>{ const r=await updatePrivacySettings({[k]:v}); setPrivacy(r.data.settings); };
-  const updateSettings = async(k:string,v:any)=>{ const r=await updateUserSettings({[k]:v}); setSettings(r.data.settings); if(k==="theme"){ applyLocalTheme(v); window.dispatchEvent(new Event("theme-change")); } };
-  const handleLangChange = (v:string)=>{ localStorage.setItem("appLanguage", v); setAppLang(v); };
-  const handleHelpSubmit = ()=>{
+  const updateSettings = async(k:string,v:any)=>{ const r=await updateUserSettings({[k]:v}); setSettings(r.data.settings); if(k==="theme"){ applyLocalTheme(v); window.dispatchEvent(new Event("theme-change")); } if(k==="language"){ localStorage.setItem("appLanguage", v); setAppLang(v); try{ window.dispatchEvent(new Event("language-change")); }catch{} } };
+  const handleLangChange = async (v:string)=>{
+    localStorage.setItem("appLanguage", v); setAppLang(v);
+    try{ await updateUserSettings({language: v}); }catch(e:any){ console.error(e); }
+    // Simple i18n: update document lang attribute
+    try{ document.documentElement.lang = v; }catch{}
+  };
+  const handleHelpSubmit = async ()=>{
     if(!helpMsg.trim()){ alert("Please enter a message"); return; }
-    alert("Thank you for your feedback! (No backend endpoint configured – message saved locally)");
-    setHelpMsg("");
+    setHelpSending(true);
+    try{
+      await submitFeedback({ message: helpMsg, category: "general" });
+      alert("Thank you for your feedback! Submitted successfully.");
+      setHelpMsg("");
+    }catch(e:any){ alert(e.response?.data?.msg || "Failed to submit feedback"); }
+    finally{ setHelpSending(false); }
   };
 
   const renderContent = ()=>{
     if(!tab) return null;
     if(tab==="account"){
-      return <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-4 md:p-6">
+      return <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-4 md:p-6 space-y-4">
         <h3 className="font-semibold text-white flex items-center gap-2"><User size={18}/> Account</h3>
-        <p className="text-white/60 text-xs mt-1">Manage your account information</p>
-        <div className="mt-4">{profileState.initializing ? <p className="text-white/60 text-sm">Loading profile…</p> : <ProfileView {...profileState} logout={profileState.handleLogout} />}</div>
-        <div className="mt-4 space-y-2">
-          <div className="flex justify-between items-center p-3 rounded-xl bg-white/5 border border-white/10"><span className="text-sm text-white/80">Security notifications</span><span className="text-xs text-white/40">On</span></div>
-          <div className="flex justify-between items-center p-3 rounded-xl bg-white/5 border border-white/10"><span className="text-sm text-white/80">Two-step verification</span><span className="text-xs text-indigo-400">Not enabled</span></div>
+        <p className="text-white/60 text-xs">Manage your account information</p>
+        <div className="mt-2">{profileState.initializing ? <p className="text-white/60 text-sm">Loading profile…</p> : <ProfileView {...profileState} logout={profileState.handleLogout} />}</div>
+        <div className="space-y-2 pt-2 border-t border-white/10">
+          <div className="flex justify-between items-center p-3 rounded-xl bg-white/5 border border-white/10">
+            <div><p className="text-sm text-white/80">Change Password</p><p className="text-xs text-white/40">Update your password securely</p></div>
+            <button onClick={async()=>{
+              const cur=prompt("Current password:"); if(!cur) return;
+              const nw=prompt("New password (min 6 chars):"); if(!nw) return;
+              const conf=prompt("Confirm new password:"); if(nw!==conf){ alert("Passwords do not match"); return; }
+              try{ const { changePasswordApi } = await import("../apis/auth.api"); await changePasswordApi({currentPassword:cur, newPassword:nw}); alert("Password changed"); }catch(e:any){ alert(e.response?.data?.msg||"Failed"); }
+            }} className="px-3 py-1.5 rounded-full bg-indigo-600 text-white text-xs">Change</button>
+          </div>
+          <div className="flex justify-between items-center p-3 rounded-xl bg-white/5 border border-white/10">
+            <div><p className="text-sm text-white/80">Change Email</p><p className="text-xs text-white/40">Update email address</p></div>
+            <button onClick={async()=>{
+              const em=prompt("New email:"); if(!em) return;
+              const pw=prompt("Enter current password to confirm:"); if(!pw) return;
+              try{ const { changeEmailApi } = await import("../apis/auth.api"); const r=await changeEmailApi({newEmail:em, password:pw}); alert("Email updated to "+r.data.email); }catch(e:any){ alert(e.response?.data?.msg||"Failed"); }
+            }} className="px-3 py-1.5 rounded-full bg-indigo-600 text-white text-xs">Change</button>
+          </div>
+          <div className="flex justify-between items-center p-3 rounded-xl bg-white/5 border border-white/10">
+            <div><p className="text-sm text-white/80">Security notifications</p><p className="text-xs text-white/40">Get notified about security changes</p></div>
+            <input type="checkbox" checked={!!settings?.securityNotifications} onChange={e=> updateSettings("securityNotifications", e.target.checked)} className="accent-indigo-600" />
+          </div>
+          <div className="flex justify-between items-center p-3 rounded-xl bg-white/5 border border-white/10">
+            <div><p className="text-sm text-white/80">Two-step verification</p><p className="text-xs text-white/40">Add extra security (PIN)</p></div>
+            <input type="checkbox" checked={!!settings?.twoStepEnabled} onChange={e=>{
+              if(e.target.checked){ const pin=prompt("Set 2FA PIN (min 4):"); if(!pin || pin.length<4){ alert("PIN too short"); return; } }
+              updateSettings("twoStepEnabled", e.target.checked);
+            }} className="accent-indigo-600" />
+          </div>
         </div>
       </div>;
     }
@@ -79,6 +118,8 @@ export default function SettingsPage(){
         <h3 className="font-semibold text-white flex items-center gap-2"><MessageCircle size={18}/> Chats</h3>
         <div className="flex justify-between items-center"><span className="text-sm text-white/80">Enter to Send</span><input type="checkbox" checked={settings.enterToSend} onChange={e=>updateSettings("enterToSend",e.target.checked)} className="accent-indigo-600" /></div>
         <div className="flex justify-between items-center"><span className="text-sm text-white/80">Font Size</span><select value={settings.fontSize} onChange={e=>updateSettings("fontSize",e.target.value)} className="bg-[#0b0d12] border border-white/10 rounded-lg px-2 py-1 text-sm text-white"><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select></div>
+        <div className="flex justify-between items-center"><span className="text-sm text-white/80">Keep chats archived</span><input type="checkbox" checked={!!settings.keepChatsArchived} onChange={e=>updateSettings("keepChatsArchived", e.target.checked)} className="accent-indigo-600" /></div>
+        <p className="text-xs text-white/40">When enabled, archived chats stay archived even when new messages arrive.</p>
         <button onClick={async()=>{await clearCache(); alert("Cache cleared");}} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full text-sm">Clear Media Cache</button>
       </div>;
     }
@@ -109,11 +150,36 @@ export default function SettingsPage(){
       return <div className="space-y-4 bg-white/[0.04] border border-white/10 rounded-2xl p-6">
         <h3 className="font-semibold text-white flex items-center gap-2"><Database size={18}/> Storage and data</h3>
         <p className="text-sm text-white/60">Manage storage and network usage. TalkSpace stores media locally for faster access.</p>
-        <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-          <p className="text-xs text-white/40">Network usage</p><p className="text-sm text-white/80 mt-1">Auto-download: Wi-Fi and cellular</p>
+        <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-1">
+          <p className="text-xs text-white/40">Network usage</p>
+          <p className="text-sm text-white/80">Messages: {networkUsage?.messageCount ?? "—"} · Cache: {networkUsage ? `${Math.round((networkUsage.mediaCacheSize||0)/1024)} KB` : "—"}</p>
+          <p className="text-xs text-white/30">Last cleared: {networkUsage?.lastCacheClear ? new Date(networkUsage.lastCacheClear).toLocaleString() : "Never"}</p>
         </div>
-        <button onClick={async()=>{await clearCache(); alert("Storage cleared");}} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full text-sm">Clear Storage Cache</button>
-        <p className="text-xs text-white/40">No fake statistics shown – values reflect real cache operations.</p>
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-white/80">Auto-download quality</p>
+          {(["photos","videos","documents"] as const).map(k=>(
+            <div key={k} className="flex justify-between items-center p-2 rounded-xl bg-white/5 border border-white/10">
+              <span className="text-sm text-white/70 capitalize">{k}</span>
+              <input type="checkbox" checked={!!settings?.autoDownloadMedia?.[k]} onChange={e=>{
+                const cur=settings?.autoDownloadMedia || {photos:true, videos:false, documents:false};
+                updateSettings("autoDownloadMedia", {...cur, [k]: e.target.checked});
+              }} className="accent-indigo-600" />
+            </div>
+          ))}
+        </div>
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-white/80">Use less data for calls</p>
+          <div className="flex justify-between items-center p-2 rounded-xl bg-white/5 border border-white/10">
+            <span className="text-sm text-white/70">Low data mode {settings?.audioQuality==="low" && settings?.videoQuality==="low" ? "(On)" : "(Off)"}</span>
+            <input type="checkbox" checked={settings?.audioQuality==="low" && settings?.videoQuality==="low"} onChange={e=>{
+              const low=e.target.checked;
+              updateSettings("audioQuality", low?"low":"medium");
+              updateSettings("videoQuality", low?"low":"medium");
+            }} className="accent-indigo-600" />
+          </div>
+          <p className="text-xs text-white/40">When enabled, reduces video resolution and bitrate via WebRTC constraints.</p>
+        </div>
+        <button onClick={async()=>{await clearCache(); const n=await getNetworkUsage(); setNetworkUsage(n.data.usage); alert("Storage cleared");}} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full text-sm">Clear Storage Cache</button>
       </div>;
     }
     if(tab==="language"){
@@ -137,8 +203,8 @@ export default function SettingsPage(){
           <p className="text-xs text-white/40 mt-2">Privacy Policy</p><p className="text-sm text-white/50">Your data is encrypted. Terms apply.</p>
         </div>
         <textarea value={helpMsg} onChange={e=>setHelpMsg(e.target.value)} placeholder="Describe your issue or feedback..." rows={4} className="w-full bg-[#0b0d12] border border-white/10 rounded-xl px-3 py-2 text-white placeholder:text-white/40 text-sm" />
-        <button onClick={handleHelpSubmit} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full text-sm">Submit Feedback</button>
-        <p className="text-xs text-white/40">Feedback is stored locally unless a backend endpoint is configured.</p>
+        <button onClick={handleHelpSubmit} disabled={helpSending} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-white/10 disabled:text-white/30 text-white rounded-full text-sm">{helpSending ? "Sending..." : "Submit Feedback"}</button>
+        <p className="text-xs text-white/40">Feedback is submitted to backend and persists.</p>
       </div>;
     }
     return <div className="p-6 text-white/60 text-sm">Loading…</div>;

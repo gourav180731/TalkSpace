@@ -301,10 +301,19 @@ const allowedMimesTypes = [
   ...(replyTo && { replyTo: new Types.ObjectId(replyTo) }),
 }).save();
 
-    // Restore chat if it was deleted/archived for either participant (new message should reappear)
+    // Restore chat if it was deleted/archived for either participant (new message should reappear), respecting keepChatsArchived
     try{
-      await UserMOdel.updateOne({_id: sender._id}, { $pull: { deletedChats: { chatId: receiver._id.toString() }, archivedChats: { chatId: receiver._id.toString() } } } as any);
-      await UserMOdel.updateOne({_id: receiver._id}, { $pull: { deletedChats: { chatId: sender._id.toString() }, archivedChats: { chatId: sender._id.toString() } } } as any);
+      const { default: UserSettings } = await import("../../models/userSettings.model");
+      const senderSettings:any = await UserSettings.findOne({userId: sender._id});
+      const receiverSettings:any = await UserSettings.findOne({userId: receiver._id});
+      const senderKeep = !!senderSettings?.keepChatsArchived;
+      const receiverKeep = !!receiverSettings?.keepChatsArchived;
+      const senderPull:any = { deletedChats: { chatId: receiver._id.toString() } };
+      const receiverPull:any = { deletedChats: { chatId: sender._id.toString() } };
+      if(!senderKeep) senderPull.archivedChats = { chatId: receiver._id.toString() };
+      if(!receiverKeep) receiverPull.archivedChats = { chatId: sender._id.toString() };
+      await UserMOdel.updateOne({_id: sender._id}, { $pull: senderPull } as any);
+      await UserMOdel.updateOne({_id: receiver._id}, { $pull: receiverPull } as any);
     }catch{}
 
 const populatedMessage = await MessageModal.findOne({

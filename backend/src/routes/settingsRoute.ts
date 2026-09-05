@@ -8,4 +8,6 @@ router.patch("/", authMiddleware, c.updateUserSettings);
 router.post("/chat/:chatId/wallpaper", authMiddleware, upload.single("wallpaper"), c.setChatWallpaper);
 router.patch("/chat/:chatId/theme", authMiddleware, c.setChatTheme);
 router.delete("/cache", authMiddleware, c.clearMediaCache);
+router.post("/feedback", authMiddleware, c.submitFeedback);
+router.get("/network-usage", authMiddleware, c.getNetworkUsage);
 export default router;

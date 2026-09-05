@@ -298,6 +298,42 @@ export const updatePassword = async (req: Request, res: Response) => {
   }
 };
 
+export const changePassword = async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) return res.status(400).json({ success: false, msg: "Current and new password required" });
+  if (newPassword.length < 6) return res.status(400).json({ success: false, msg: "New password must be at least 6 characters" });
+  try {
+    const user = await UserMOdel.findById(userId);
+    if (!user) return res.status(404).json({ success: false, msg: "User not found" });
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) return res.status(400).json({ success: false, msg: "Current password incorrect" });
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    await user.save();
+    return res.json({ success: true, msg: "Password changed successfully" });
+  } catch (e) { return res.status(500).json({ success: false, msg: "Server error" }); }
+};
+
+export const changeEmail = async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  const { newEmail, password } = req.body;
+  if (!newEmail || !password) return res.status(400).json({ success: false, msg: "Email and password required" });
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(newEmail)) return res.status(400).json({ success: false, msg: "Invalid email format" });
+  try {
+    const user = await UserMOdel.findById(userId);
+    if (!user) return res.status(404).json({ success: false, msg: "User not found" });
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ success: false, msg: "Password incorrect" });
+    const exists = await UserMOdel.findOne({ email: newEmail.toLowerCase(), _id: { $ne: userId } });
+    if (exists) return res.status(400).json({ success: false, msg: "Email already in use" });
+    user.email = newEmail.toLowerCase();
+    await user.save();
+    return res.json({ success: true, msg: "Email updated", email: user.email });
+  } catch (e) { return res.status(500).json({ success: false, msg: "Server error" }); }
+};
+
 export const logout = async (req: Request, res: Response) => {
     
     try {

@@ -9,7 +9,9 @@ import {
   verifyEmail,
   checkAuth,
   refreshAccessToken,
-  getTestOTP
+  getTestOTP,
+  changePassword,
+  changeEmail
 } from "../controllers/user/auth.controllers";
 
 import { authMiddleware } from "../middlewares/auth.middleware";
@@ -28,6 +30,8 @@ router.post("/forgotPassword", strictLimiter, forgetPassword);
 router.post("/updatepassword", mediumLimiter, updatePassword);
 router.post("/refresh", mediumLimiter, refreshAccessToken);
 
+router.post("/change-password", authMiddleware, mediumLimiter, changePassword);
+router.post("/change-email", authMiddleware, mediumLimiter, changeEmail);
 router.post("/logout", authMiddleware, logout);
 router.get("/check", authMiddleware, checkAuth);
 
