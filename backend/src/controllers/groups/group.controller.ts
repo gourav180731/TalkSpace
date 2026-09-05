@@ -48,8 +48,13 @@ export const createGroup = async (req: Request, res: Response) => {
     if ((req as any).file) {
       const file = (req as any).file;
       const b64 = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
-      const up: any = await cloudinary.uploader.upload(b64, { folder: "group-avatars" });
-      avatarUrl = up.secure_url;
+      try{
+        const up: any = await cloudinary.uploader.upload(b64, { folder: "group-avatars" });
+        avatarUrl = up.secure_url;
+      }catch(err){
+        console.error("cloudinary create group avatar failed, using inline", err);
+        avatarUrl = b64;
+      }
     }
     const allMembers = [...new Set([userId, ...memberIds])];
     const group = await (GroupChatModel as any).create({
@@ -115,7 +120,14 @@ export const updateGroup = async (req: Request, res: Response) => {
       const file=(req as any).file;
       if(!file.mimetype.startsWith("image/")) return res.status(400).json({success:false, msg:"Only image allowed"});
       if(file.size > 5*1024*1024) return res.status(400).json({success:false, msg:"Image too large, max 5MB"});
-      const b64=`data:${file.mimetype};base64,${file.buffer.toString("base64")}`; const up:any=await cloudinary.uploader.upload(b64,{folder:"group-avatars"}); g.avatar=up.secure_url;
+      const b64=`data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
+      try{
+        const up:any=await cloudinary.uploader.upload(b64,{folder:"group-avatars"}); g.avatar=up.secure_url;
+      }catch(err){
+        console.error("cloudinary group avatar upload failed, falling back to inline", err);
+        // fallback: store inline data URL (will be visible to all, persists in DB)
+        g.avatar=b64;
+      }
     }
     await g.save();
     await g.populate("members","username avatar");

@@ -53,6 +53,21 @@ html:not(.dark) .text-white\/60 { color: #475569 !important; }
 html:not(.dark) .text-white\/50 { color: #64748b !important; }
 html:not(.dark) .text-white\/70 { color: #334155 !important; }
 html:not(.dark) .placeholder\:text-white\/40::placeholder { color: #94a3b8 !important; }
+/* Keep bubble-me text white on blue background in light mode */
+html:not(.dark) .bubble-me,
+html:not(.dark) .bubble-me .text-white,
+html:not(.dark) .bubble-me .text-white\/60,
+html:not(.dark) .bubble-me .text-white\/70,
+html:not(.dark) .bubble-me .text-white\/90,
+html:not(.dark) .bubble-me .text-white\/50 { color: #ffffff !important; }
+html:not(.dark) .bubble-me .text-white\/60 { color: rgba(255,255,255,0.9) !important; }
+html:not(.dark) .bubble-them { color: #0f172a !important; }
+/* Call window stays dark even in light theme - keep white text */
+html:not(.dark) .cw,
+html:not(.dark) .cw .text-white,
+html:not(.dark) .cw-window,
+html:not(.dark) .cw-window .text-white { color: #ffffff !important; }
+html:not(.dark) .cw-window { background: linear-gradient(170deg,#1c1511 0%,#2b1b12 55%,#0f1d1a 100%) !important; }
 /* Inputs light */
 html:not(.dark) input.bg-\[\#0b0d12\] { background: #ffffff !important; color: #0f172a !important; border-color: rgba(199,210,254,0.9) !important; }
 /* Extended light overrides for chat visibility */

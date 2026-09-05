@@ -1,15 +1,15 @@
 import { axiosInstance } from "./axios";
-export const createGroup = (data: FormData) => axiosInstance.post("/groups/create", data, { headers:{ "Content-Type":"multipart/form-data"}});
+export const createGroup = (data: FormData) => axiosInstance.post("/groups/create", data);
 export const getMyGroups = () => axiosInstance.get("/groups");
 export const getGroupDetails = (id:string)=> axiosInstance.get(`/groups/${id}`);
-export const updateGroup = (id:string, data:FormData)=> axiosInstance.patch(`/groups/${id}`, data, {headers:{"Content-Type":"multipart/form-data"}});
+export const updateGroup = (id:string, data:FormData)=> axiosInstance.patch(`/groups/${id}`, data);
 export const leaveGroup = (id:string)=> axiosInstance.delete(`/groups/${id}/leave`);
 export const addMember = (id:string, memberId:string)=> axiosInstance.post(`/groups/${id}/members`, {memberId});
 export const removeMember = (id:string, memberId:string)=> axiosInstance.delete(`/groups/${id}/members/${memberId}`);
 export const promoteToAdmin = (id:string, memberId:string)=> axiosInstance.patch(`/groups/${id}/admins/${memberId}/promote`);
 export const demoteAdmin = (id:string, memberId:string)=> axiosInstance.patch(`/groups/${id}/admins/${memberId}/demote`);
 export const getGroupMessages = (id:string, page=1)=> axiosInstance.get(`/groups/${id}/messages?page=${page}`);
-export const sendGroupMessage = (id:string, data:FormData)=> axiosInstance.post(`/groups/${id}/messages`, data, {headers:{"Content-Type":"multipart/form-data"}});
+export const sendGroupMessage = (id:string, data:FormData)=> axiosInstance.post(`/groups/${id}/messages`, data);
 export const deleteGroupMessage = (gid:string, mid:string)=> axiosInstance.delete(`/groups/${gid}/messages/${mid}`);
 export const deleteGroupMessageForMe = (gid:string, mid:string)=> axiosInstance.delete(`/groups/${gid}/messages/${mid}/me`);
 export const editGroupMessage = (gid:string, mid:string, text:string)=> axiosInstance.patch(`/groups/${gid}/messages/${mid}/edit`, {text});

@@ -373,6 +373,20 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
       groupIceQueuesRef.current.clear();
       groupCallIdRef.current = `${groupId}_${Date.now()}`;
       callSocket.setCallType(type);
+      // populate members map for username display (initiator side)
+      try{
+        const m = new Map<string, {username:string, avatar:string|null}>();
+        for(const mem of members){
+          const id = typeof mem==="string" ? mem : (mem._id||(mem as any).id||"")?.toString();
+          const uname = typeof mem==="string" ? id.slice(-6) : mem.username || mem.name || "";
+          const av = typeof mem==="string" ? null : mem.avatar || null;
+          if(id) m.set(id, {username: uname, avatar: av});
+        }
+        // also ensure self is included
+        const my = members.find((mm:any)=> String(typeof mm==="string"? mm : mm._id||mm.id)===myId);
+        if(my && typeof my!=="string") m.set(myId, {username: (my as any).username || "You", avatar: (my as any).avatar||null});
+        (callSocket as any).setGroupCallMembers?.(m);
+      }catch{}
       callSocket.setCallUser({ _id: groupId, username: "Group", isGroup:true, groupId });
       // important: set calling BEFORE emitting so participant-joined handler will run
       callSocket.setCallStatus("calling");

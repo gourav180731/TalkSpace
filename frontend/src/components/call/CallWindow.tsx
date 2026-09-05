@@ -1049,11 +1049,11 @@ function GroupActiveCallWindow({isVideo,isConnected,remoteName,seconds,fmt,isMut
       <TitleBar remoteName={remoteName} isConnected={isConnected} isVideo={isVideo} />
       <button onClick={onMinimize} style={{position:"absolute", top:10, left:14, zIndex:5, background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.15)", color:"#fff", padding:"6px 10px", borderRadius:99, fontSize:11, cursor:"pointer"}}>— Minimize</button>
       <div style={{position:"absolute", top:48, right:14, zIndex:5, background:"rgba(0,0,0,0.45)", color:"#fff", padding:"4px 8px", borderRadius:8, fontSize:11}}>{isConnected ? fmt(seconds) : "Connecting…"} · {total} participants</div>
-      {/* GRID */}
-      <div style={{flex:1, display:"grid", gap:8, padding: "56px 12px 12px 12px", overflow:"hidden",
-        gridTemplateColumns: total<=2 ? "1fr 1fr" : total<=4 ? "1fr 1fr" : "1fr 1fr 1fr",
-        gridAutoRows:"1fr",
-        alignContent:"stretch"
+      {/* GRID - responsive WhatsApp-like, auto-fit, scrollable if many */}
+      <div style={{flex:1, display:"grid", gap:8, padding: "56px 12px 12px 12px", overflow:"auto",
+        gridTemplateColumns: total===2 ? "1fr 1fr" : total===3 ? "1fr 1fr" : "repeat(auto-fit, minmax(min(100%, 160px), 1fr))",
+        gridAutoRows:"minmax(120px, 1fr)",
+        alignContent:"start"
       }}>
         {/* Local tile */}
         <div style={{position:"relative", background:"#0a0a0a", borderRadius:12, overflow:"hidden", border:"2px solid rgba(255,255,255,0.12)"}}>
@@ -1103,7 +1103,9 @@ function GroupMinimizedBubble({isConnected,remoteName,seconds,fmt,isMuted,onEnd,
   const [pos,setPos]=useState({x:0,y:0}); const [snapping,setSnapping]=useState(false);
   const draggingRef=useRef(false); const hasDraggedRef=useRef(false);
   const startPtrRef=useRef({x:0,y:0}); const startPosRef=useRef({x:0,y:0});
-  const { groupStreamsRef, localStreamRef, groupCallMembers } = useGlobalCall() as any;
+  const { groupStreamsRef, localStreamRef, groupCallMembers, groupTick } = useGlobalCall() as any;
+  const [, forceTick] = useState(0);
+  useEffect(()=>{ forceTick(v=>v+1); },[groupTick]);
   const count = (groupStreamsRef ? groupStreamsRef.current.size : 0) +1;
   const streams: Array<[string, MediaStream]> = groupStreamsRef ? Array.from(groupStreamsRef.current.entries()) as any : [];
   // attach local to minimized preview
