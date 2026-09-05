@@ -5,12 +5,15 @@ import { useAuth } from "../../context/AuthContext";
 import ChatHeaderMenu from "./ChatHeaderMenu";
 import { useState } from "react";
 import { leaveGroup } from "../../apis/group.api";
+import { useCall } from "../call/hooks/useCall";
 
 export default function ChatHeader({ user, onBack, onSearch, onSelectMode, onCloseChat, onContactInfo, onWallpaperChange }: any) {
   const [showGroupInfo,setShowGroupInfo]=useState(false);
   const { onlineUsers, lastSeen } = usePresence();
   const { user: currentUser } = useAuth();
   const callSocket = useGlobalCall();
+  const { remoteVideoRef, localVideoRef, remoteAudioRef } = useGlobalCall();
+  const call = useCall(remoteVideoRef, localVideoRef, remoteAudioRef);
   const isOnline = onlineUsers.has(user._id);
 
   const isGroup = !!user.isGroup;
@@ -86,16 +89,22 @@ export default function ChatHeader({ user, onBack, onSearch, onSelectMode, onClo
       {/* ACTIONS - Voice/Video directly visible, rest in 3-dot */}
       <div className="ml-auto flex items-center gap-1 shrink-0">
         <button
-          onClick={() => {
+          onClick={async () => {
             if (callSocket.callStatus !== "idle") return;
             if (isGroup) {
-              import("../../apis/socket").then(({socket})=>{
-                socket.emit("group-call-start", { groupId: group._id, type: "audio" });
-                // Optimistically show call UI as group audio
+              try{
+                // Use group call with WebRTC mesh (up to 8)
+                await (call as any).startGroupCall?.(group._id, group.members || [], "audio");
                 callSocket.setCallUser({ _id: group._id, username: group.name, avatar: group.avatar, isGroup:true });
                 callSocket.setCallType("audio");
                 callSocket.setCallStatus("calling");
-              });
+              }catch{
+                const { socket } = await import("../../apis/socket");
+                socket.emit("group-call-start", { groupId: group._id, type: "audio" });
+                callSocket.setCallUser({ _id: group._id, username: group.name, avatar: group.avatar, isGroup:true });
+                callSocket.setCallType("audio");
+                callSocket.setCallStatus("calling");
+              }
             } else {
               user.onCall?.("audio");
             }
@@ -107,15 +116,21 @@ export default function ChatHeader({ user, onBack, onSearch, onSelectMode, onClo
           <Phone size={16} className="md:w-[18px] md:h-[18px]" />
         </button>
         <button
-          onClick={() => {
+          onClick={async () => {
             if (callSocket.callStatus !== "idle") return;
             if (isGroup) {
-              import("../../apis/socket").then(({socket})=>{
+              try{
+                await (call as any).startGroupCall?.(group._id, group.members || [], "video");
+                callSocket.setCallUser({ _id: group._id, username: group.name, avatar: group.avatar, isGroup:true });
+                callSocket.setCallType("video");
+                callSocket.setCallStatus("calling");
+              }catch{
+                const { socket } = await import("../../apis/socket");
                 socket.emit("group-call-start", { groupId: group._id, type: "video" });
                 callSocket.setCallUser({ _id: group._id, username: group.name, avatar: group.avatar, isGroup:true });
                 callSocket.setCallType("video");
                 callSocket.setCallStatus("calling");
-              });
+              }
             } else {
               user.onCall?.("video");
             }

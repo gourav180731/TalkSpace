@@ -200,23 +200,42 @@ export function initSocket(io: Server) {
 
     });
 
-    // Group call handling (minimal, history-focused, preserves 1-1)
+    // Group call handling (up to 8 participants, offline not blocking)
     socket.on("group-call-start", async ({ groupId, type }) => {
       try{
         const { default: GroupChat } = await import("./models/groupChat.model");
         const g:any = await GroupChat.findOne({ _id: groupId, members: userId });
         if(!g) return;
+        if(g.members.length > 8) { socket.emit("error", "Group call limited to 8 participants"); return; }
         const callId = `${groupId}_${userId}_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
-        // store as ongoing for duration calc (reuse ongoingCalls map with groupId as partner)
-        ongoingCalls.set(userId, { partnerId: groupId, callId, caller: userId, receiver: groupId, startTime: new Date(), callType: type||"audio", groupId } as any);
-        // notify other members
+        ongoingCalls.set(userId, { partnerId: groupId, callId, caller: userId, receiver: groupId, startTime: new Date(), answeredAt: new Date(), callType: type||"audio", groupId } as any);
         for(const mem of g.members){
           const mid = mem.toString();
           if(mid===userId) continue;
           const sid = onlineUsers.get(mid);
-          if(sid) io.to(sid).emit("incoming-group-call", { groupId, callId, from: userId, type: type||"audio", groupName: g.name });
+          if(sid) io.to(sid).emit("incoming-group-call", { groupId, callId, from: userId, type: type||"audio", groupName: g.name, groupAvatar: g.avatar });
         }
         socket.emit("group-call-started", { groupId, callId });
+      }catch{}
+    });
+    socket.on("group-call-accept", async ({ groupId, callId }) => {
+      try{
+        const info:any = ongoingCalls.get(userId);
+        if(!info || info.partnerId!==groupId) {
+          ongoingCalls.set(userId, { partnerId: groupId, callId: callId || `${groupId}_${userId}_${Date.now()}`, caller: info?.caller || userId, receiver: groupId, startTime: new Date(), answeredAt: new Date(), callType: info?.callType||"audio", groupId } as any);
+        } else if(!info.answeredAt) info.answeredAt = new Date();
+      }catch{}
+    });
+    socket.on("group-call-reject", async ({ groupId, callId }) => {
+      try{
+        const info:any = ongoingCalls.get(userId);
+        const cid = info?.callId || callId;
+        // For group, reject is per participant, not global call end - just log as rejected for that user if they were invited but declined
+        // We don't create global group call history for single reject, but per-user history could be created as missed/rejected
+        // For now, just clean up this user's ongoing entry
+        ongoingCalls.delete(userId);
+        // Optionally log a rejected group call record for this user
+        await logCall({ callId: cid || `${groupId}_${userId}_${Date.now()}`, caller: userId, receiver: groupId, groupId, isGroupCall:true, callType: (info?.callType as any)||"audio", status:"rejected" as any, startTime: new Date(), endTime: new Date(), duration:0 });
       }catch{}
     });
     socket.on("group-call-end", async ({ groupId, callId: clientCallId, duration }) => {
@@ -240,6 +259,32 @@ export function initSocket(io: Server) {
           }
         }
       }catch{}
+    });
+
+    socket.on("group-call-offer", ({ groupId, to, offer, type }) => {
+      // Relay offer to specific member or group
+      if(to){
+        const sid=onlineUsers.get(to);
+        if(sid) io.to(sid).emit("group-call-offer", { groupId, offer, from: userId, type });
+      } else {
+        socket.to(groupId).emit("group-call-offer", { groupId, offer, from: userId, type });
+      }
+    });
+    socket.on("group-call-answer", ({ groupId, to, answer }) => {
+      if(to){
+        const sid=onlineUsers.get(to);
+        if(sid) io.to(sid).emit("group-call-answer", { from: userId, answer, groupId });
+      } else {
+        socket.to(groupId).emit("group-call-answer", { from: userId, answer, groupId });
+      }
+    });
+    socket.on("group-ice-candidate", ({ groupId, to, candidate }) => {
+      if(to){
+        const sid=onlineUsers.get(to);
+        if(sid) io.to(sid).emit("group-ice-candidate", { from: userId, candidate, groupId });
+      } else {
+        socket.to(groupId).emit("group-ice-candidate", { from: userId, candidate, groupId });
+      }
     });
 
     socket.on("ice-candidate", ({ to, candidate }) => {

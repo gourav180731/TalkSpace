@@ -161,6 +161,27 @@ export const CallProvider = ({ children }: any) => {
     socket.on("call-busy",      onBusy);
     socket.on("error",          onError);
     socket.on("call-ended",     onEnded);
+    // Group call listeners (preserve movable window)
+    const onIncomingGroup = ({ groupId, callId, from, type, groupName }: any)=>{
+      if(callStatusRef.current === "connected") return;
+      setIncomingCall({ from, groupId, callId, type, isGroup:true, groupName });
+      if(callId) setCurrentCallId(callId);
+      // Use group as callUser for UI
+      setCallUser({ _id: groupId, username: groupName || "Group", isGroup:true, groupId });
+      setCallType(type||"audio");
+      setCallStatus("ringing");
+      playRingtone();
+    };
+    const onGroupEnded = ({ callId }: any)=>{
+      if(currentCallIdRef.current && callId && currentCallIdRef.current!==callId) return;
+      clearMissedTimer(); stopAllAudio();
+      setCallStatus("idle"); setIncomingCall(null); setCallUser(null); setActiveCallUserId(null); setCurrentCallId(null); setIsMinimized(false);
+      connectedAtRef.current=null;
+    };
+    const onGroupStarted = ({ callId }: any)=>{ if(callId) setCurrentCallId(callId); };
+    socket.on("incoming-group-call", onIncomingGroup);
+    socket.on("group-call-ended", onGroupEnded);
+    socket.on("group-call-started", onGroupStarted);
 
     return () => {
       socket.off("call-initiated", onInitiated);
@@ -170,6 +191,9 @@ export const CallProvider = ({ children }: any) => {
       socket.off("call-busy",      onBusy);
       socket.off("error",          onError);
       socket.off("call-ended",     onEnded);
+      socket.off("incoming-group-call", onIncomingGroup);
+      socket.off("group-call-ended", onGroupEnded);
+      socket.off("group-call-started", onGroupStarted);
     };
   }, []);
 

@@ -305,6 +305,25 @@ export default function CallWindow() {
 
   const handleAccept = async () => {
     callSocket.stopAllAudio();
+    const inc = callSocket.incomingCall;
+    if(inc?.isGroup){
+      // Group call accept: set connected, get media if needed, notify group
+      try{
+        const stream = await navigator.mediaDevices.getUserMedia({ audio:{echoCancellation:true, noiseSuppression:true}, video: inc.type==="video" });
+        const ctx:any = callSocket as any;
+        if(ctx.localStreamRef) ctx.localStreamRef.current = stream;
+        if(ctx.localVideoRef?.current){ ctx.localVideoRef.current.srcObject = stream; ctx.localVideoRef.current.muted=true; ctx.localVideoRef.current.play().catch(()=>{}); }
+        if(ctx.remoteVideoRef?.current && stream && inc.type==="video"){
+          // For group, show local as remote placeholder
+          ctx.remoteVideoRef.current.srcObject = stream;
+          ctx.remoteVideoRef.current.play().catch(()=>{});
+        }
+      }catch{}
+      socket.emit("group-call-accept", { groupId: inc.groupId || inc.from, callId: inc.callId });
+      callSocket.setCallStatus("connected");
+      callSocket.setIncomingCall(null);
+      return;
+    }
     await call.acceptCall(
       callSocket.incomingCall.from,
       callSocket.incomingCall.offer,
@@ -320,7 +339,12 @@ export default function CallWindow() {
 
   const handleReject = () => {
     callSocket.stopAllAudio();
-    socket.emit("reject-call", { to: callSocket.incomingCall.from, callId: callSocket.incomingCall.callId || (callSocket as any).currentCallId });
+    const inc:any = callSocket.incomingCall;
+    if(inc?.isGroup){
+      socket.emit("group-call-reject", { groupId: inc.groupId || inc.from, callId: inc.callId });
+    } else {
+      socket.emit("reject-call", { to: inc.from, callId: inc.callId || (callSocket as any).currentCallId });
+    }
     callSocket.setIncomingCall(null);
     callSocket.setCallStatus("idle");
   };

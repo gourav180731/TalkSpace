@@ -51,6 +51,54 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
     };
   }, []);
 
+  // Group call peers (up to 8) - mesh via Map<participantId, peer>
+  const groupPeersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const groupCallIdRef = useRef<string | null>(null);
+
+  // Group socket listeners
+  useEffect(()=>{
+    const onGroupOffer = async ({ groupId, offer, from, type }: any)=>{
+      // If not in group call or already have peer for this from, ignore duplicate
+      if(!callSocket.currentCallId) return;
+      if(groupPeersRef.current.has(from)) return;
+      try{
+        const stream = localStreamRef.current || await navigator.mediaDevices.getUserMedia({ audio:{echoCancellation:true, noiseSuppression:true}, video: type==="video"});
+        if(!localStreamRef.current) localStreamRef.current = stream;
+        if(localVideoRef.current && stream) { localVideoRef.current.srcObject = stream; localVideoRef.current.muted=true; localVideoRef.current.play().catch(()=>{}); }
+        const peer = createPeer(from);
+        groupPeersRef.current.set(from, peer);
+        for(const track of stream.getTracks()) peer.addTrack(track, stream);
+        await peer.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await peer.createAnswer();
+        await peer.setLocalDescription(answer);
+        await waitForIceGathering(peer);
+        socket.emit("group-call-answer", { groupId, answer: peer.localDescription, to: from });
+      }catch(e){ console.error("group offer handling failed", e); }
+    };
+    const onGroupAnswer = async ({ from, answer }: any)=>{
+      const peer = groupPeersRef.current.get(from);
+      if(peer && peer.signalingState!=="closed"){
+        try{ await peer.setRemoteDescription(new RTCSessionDescription(answer)); }catch(e){ console.error("group answer set failed", e); }
+      }
+    };
+    const onGroupIce = async ({ from, candidate }: any)=>{
+      const peer = groupPeersRef.current.get(from);
+      if(peer && candidate){
+        try{ await peer.addIceCandidate(new RTCIceCandidate(candidate)); }catch{}
+      } else {
+        // queue if peer not ready
+      }
+    };
+    socket.on("group-call-offer", onGroupOffer);
+    socket.on("group-call-answer", onGroupAnswer);
+    socket.on("group-ice-candidate", onGroupIce);
+    return ()=>{
+      socket.off("group-call-offer", onGroupOffer);
+      socket.off("group-call-answer", onGroupAnswer);
+      socket.off("group-ice-candidate", onGroupIce);
+    };
+  },[]);
+
   // Helper to attach with retry (handles ref not mounted yet)
   const attachWithRetry = (ref:any, stream:MediaStream|null, isLocal=false) => {
     if(!ref || !stream) return;
@@ -218,6 +266,51 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
       setActiveCallUserId(null);
       callSocket.setCallStatus("idle");
       callSocket.setCallUser(null);
+    }
+  };
+
+  // START GROUP CALL (up to 8 participants, mesh-lite)
+  const startGroupCall = async (groupId: string, members: any[], type: "audio" | "video" = "audio") => {
+    // Filter to max 8, exclude self, only group members
+    const otherMembers = members.filter((m:any)=>{
+      const mid = typeof m === 'string' ? m : m._id?.toString() || m.toString();
+      return mid !== (callSocket as any).callUser?._id && mid !== activeCallUserId;
+    }).slice(0,7); // initiator + 7 = 8 max
+    if(otherMembers.length===0) {
+      // Still create call for history even if no other online
+      socket.emit("group-call-start", { groupId, type });
+      return;
+    }
+    try{
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true},
+        video: type==="video",
+      });
+      localStreamRef.current = stream;
+      if(localVideoRef.current){ localVideoRef.current.srcObject = stream; localVideoRef.current.muted=true; localVideoRef.current.play().catch(()=>{}); }
+      // Create peer per other member
+      for(const m of otherMembers){
+        const mid = typeof m === 'string' ? m : m._id?.toString() || m.toString();
+        const peer = createPeer(mid);
+        groupPeersRef.current.set(mid, peer);
+        for(const track of stream.getTracks()) peer.addTrack(track, stream);
+        const offer = await peer.createOffer();
+        await peer.setLocalDescription(offer);
+        await waitForIceGathering(peer);
+        socket.emit("group-call-offer", { groupId, to: mid, offer: peer.localDescription, type });
+        // Also handle ICE via group-ice-candidate
+        peer.onicecandidate = (e:any)=>{
+          if(e.candidate) socket.emit("group-ice-candidate", { groupId, to: mid, candidate: e.candidate });
+        };
+      }
+      socket.emit("group-call-start", { groupId, type });
+      groupCallIdRef.current = `${groupId}_${Date.now()}`;
+      callSocket.setCallType(type);
+      callSocket.setCallStatus("calling");
+    }catch(err:any){
+      console.error("group start failed", err);
+      const msg = err?.name==="NotAllowedError" ? "Mic/Camera denied" : "Failed to start group call";
+      window.dispatchEvent(new CustomEvent("call-error",{detail:msg}));
     }
   };
 
@@ -422,6 +515,7 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
 
   return {
     startCall,
+    startGroupCall,
     acceptCall,
     setRemoteAnswer,
     addIceCandidate,

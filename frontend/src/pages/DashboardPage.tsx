@@ -9,6 +9,8 @@ import MobileBottomNav from "../components/layout/MobileBottomNav";
 import AppLock from "../components/dashboard/AppLock";
 import { useScrollDirection } from "../utils/useScrollDirection";
 import { useGlobalCall } from "../context/CallContext";
+import { socket } from "../apis/socket";
+import { useGroup } from "../context/GroupContext";
 
 export default function DashboardPage() {
   const [selectedChat, setSelectedChat] = useState<any>(null);
@@ -43,6 +45,7 @@ export default function DashboardPage() {
     }
   }, [searchParams, setSearchParams]);
 
+  const { groups } = useGroup();
   useEffect(()=>{
     const onOpenDirect = (e:any)=>{
       const u=e.detail;
@@ -58,6 +61,26 @@ export default function DashboardPage() {
       window.removeEventListener("group-left" as any, onGroupLeft as any);
     };
   },[selectedChat]);
+
+  // Keep selected group in sync when avatar/name changes via socket
+  useEffect(()=>{
+    const onGroupUpdated = (d:any)=>{
+      const gid = d.groupId?.toString();
+      if(!gid) return;
+      if(selectedChat && selectedChat.isGroup && selectedChat._id === gid){
+        const updated = groups.find((g:any)=> g._id===gid);
+        if(updated){
+          setSelectedChat((prev:any)=> ({ ...prev, username: updated.name, avatar: updated.avatar, group: updated }));
+        } else {
+          // fallback to socket payload settings
+          setSelectedChat((prev:any)=> ({ ...prev, username: d.settings?.name || prev.username, avatar: d.settings?.avatar || prev.avatar, group: { ...prev.group, ...d.settings } }));
+        }
+      }
+    };
+    socket.on("group-settings-updated", onGroupUpdated);
+    socket.on("group-member-added", onGroupUpdated);
+    return ()=>{ socket.off("group-settings-updated", onGroupUpdated); socket.off("group-member-added", onGroupUpdated); };
+  },[selectedChat, groups]);
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-[#0b0d12] dark:bg-[#0b0d12]">
