@@ -6,25 +6,35 @@ import ChatHeaderMenu from "./ChatHeaderMenu";
 import { useState } from "react";
 import { leaveGroup } from "../../apis/group.api";
 import { useCall } from "../call/hooks/useCall";
+import { useGroup } from "../../context/GroupContext";
 
 export default function ChatHeader({ user, onBack, onSearch, onSelectMode, onCloseChat, onContactInfo, onWallpaperChange }: any) {
   const [showGroupInfo,setShowGroupInfo]=useState(false);
-  const { onlineUsers, lastSeen } = usePresence();
+  const { onlineUsers, lastSeen, isSyncing } = usePresence() as any;
   const { user: currentUser } = useAuth();
   const callSocket = useGlobalCall();
   const { remoteVideoRef, localVideoRef, remoteAudioRef } = useGlobalCall();
   const call = useCall(remoteVideoRef, localVideoRef, remoteAudioRef);
-  const isOnline = onlineUsers.has(user._id);
-
+  const { fetchGroups } = useGroup();
   const isGroup = !!user.isGroup;
   const group = user.group || user;
-
   const getMemberId = (m:any) => {
     if(!m) return "";
     if(typeof m === 'string') return m;
     if(m._id) return m._id.toString();
     return String(m);
   };
+  const isMemberOnline = (m:any) => onlineUsers.has(getMemberId(m));
+  const onlineCount = isGroup ? group.members?.filter((m:any)=> isMemberOnline(m)).length || 0 : 0;
+  const isOnline = onlineUsers.has(user._id);
+  const presenceLabel = isGroup ? `${group.members?.length||0} members${onlineCount ? ` · ${onlineCount} online` : ""}` :
+    isSyncing ? "checking…" :
+    callSocket.callStatus === "calling" ? "📡 Calling..." :
+    callSocket.callStatus === "connected" ? "🎤 In call" :
+    user.isBot ? "Echo · always here" :
+    isOnline ? "online" :
+    lastSeen[user._id] ? `last seen ${new Date(lastSeen[user._id]).toLocaleTimeString()}` : "offline";
+
   const getMemberName = (m:any) => {
     if(!m) return "Unknown";
     if(typeof m === 'string') return m.slice(-6);
@@ -34,8 +44,6 @@ export default function ChatHeader({ user, onBack, onSearch, onSelectMode, onClo
     if(!m || typeof m === 'string') return `https://ui-avatars.com/api/?name=${getMemberName(m)}`;
     return m.avatar || `https://ui-avatars.com/api/?name=${getMemberName(m)}`;
   };
-  const isMemberOnline = (m:any) => onlineUsers.has(getMemberId(m));
-  const onlineCount = isGroup ? group.members?.filter((m:any)=> isMemberOnline(m)).length || 0 : 0;
   return (
     <>
     <div className="z-20 flex items-center gap-3 px-4 py-3 bg-[#121520]/60 backdrop-blur-xl border-b border-white/10 dark:bg-[#121520]/60 dark:border-white/10">
@@ -71,18 +79,7 @@ export default function ChatHeader({ user, onBack, onSearch, onSelectMode, onClo
       <div className="flex flex-col min-w-0 cursor-pointer" onClick={()=> isGroup && setShowGroupInfo(true)}>
         <span className="text-white font-semibold truncate flex items-center gap-1">{isGroup ? group.name||user.username : user.username} {isGroup && <Users size={12} className="opacity-50"/>}</span>
         <span className="text-xs text-white/60 truncate">
-          {isGroup ? `${group.members?.length||0} members${onlineCount ? ` · ${onlineCount} online` : ""}` :
-          callSocket.callStatus === "calling"
-            ? "📡 Calling..."
-            : callSocket.callStatus === "connected"
-            ? "🎤 In call"
-            : user.isBot
-            ? "Echo · always here"
-            : isOnline
-            ? "online"
-            : lastSeen[user._id]
-            ? `last seen ${new Date(lastSeen[user._id]).toLocaleTimeString()}`
-            : "offline"}
+          {presenceLabel}
         </span>
       </div>
 
@@ -160,7 +157,20 @@ export default function ChatHeader({ user, onBack, onSearch, onSelectMode, onClo
                       if(!file.type.startsWith("image/")){ alert("Only image allowed"); return; }
                       if(file.size>5*1024*1024){ alert("Max 5MB"); return; }
                       const fd=new FormData(); fd.append("avatar", file);
-                      try{ const { updateGroup } = await import("../../apis/group.api"); await updateGroup(group._id, fd); alert("Group photo updated"); }catch(err:any){ alert(err.response?.data?.msg||"Failed"); }
+                      try{
+                        const { updateGroup } = await import("../../apis/group.api");
+                        const res= await updateGroup(group._id, fd);
+                        const updated=res.data?.group;
+                        if(updated){
+                          group.avatar = updated.avatar;
+                          group.name = updated.name;
+                        }
+                        await fetchGroups();
+                        // also notify parent via socket already, but force selectedChat sync
+                        window.dispatchEvent(new CustomEvent("group-settings-updated", {detail:{groupId: group._id, settings:{ avatar: updated?.avatar, name: updated?.name}}}));
+                        alert("Group photo updated");
+                      }catch(err:any){ alert(err.response?.data?.msg||"Failed"); }
+                      e.target.value="";
                     }} />
                   </label>;
                 })()}
@@ -174,7 +184,14 @@ export default function ChatHeader({ user, onBack, onSearch, onSelectMode, onClo
                 return <button onClick={async()=>{
                   if(!confirm("Remove group photo?")) return;
                   const fd=new FormData(); fd.append("removeAvatar","true");
-                  try{ const { updateGroup } = await import("../../apis/group.api"); await updateGroup(group._id, fd); alert("Group photo removed"); }catch(err:any){ alert(err.response?.data?.msg||"Failed"); }
+                  try{
+                    const { updateGroup } = await import("../../apis/group.api"); const res=await updateGroup(group._id, fd);
+                    const updated=res.data?.group;
+                    if(updated){ group.avatar = updated.avatar; group.name = updated.name; }
+                    await fetchGroups();
+                    window.dispatchEvent(new CustomEvent("group-settings-updated", {detail:{groupId: group._id, settings:{ avatar: updated?.avatar}}}));
+                    alert("Group photo removed");
+                  }catch(err:any){ alert(err.response?.data?.msg||"Failed"); }
                 }} className="text-xs text-white/50 hover:text-rose-300 underline">Remove photo</button>;
               })()}
             </div>

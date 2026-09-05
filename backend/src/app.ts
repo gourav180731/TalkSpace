@@ -22,6 +22,7 @@ import chatManagementRoute from "./routes/chatManagementRoute";
 import searchRoute from "./routes/searchRoute";
 import stickerRoute from "./routes/stickerRoute";
 import callHistoryRoute from "./routes/callHistoryRoute";
+import presenceRoute from "./routes/presenceRoute";
 const app: Application = express();
 
 // Required when behind Render/Heroku/cloud proxy for X-Forwarded-For
@@ -75,5 +76,6 @@ app.use("/api/chat-management", chatManagementRoute);
 app.use("/api/search", searchRoute);
 app.use("/api/stickers", stickerRoute);
 app.use("/api/calls", callHistoryRoute);
+app.use("/api/presence", presenceRoute);
 
 export default app;

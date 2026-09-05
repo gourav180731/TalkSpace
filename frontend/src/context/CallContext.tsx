@@ -182,6 +182,11 @@ export const CallProvider = ({ children }: any) => {
     socket.on("incoming-group-call", onIncomingGroup);
     socket.on("group-call-ended", onGroupEnded);
     socket.on("group-call-started", onGroupStarted);
+    // also listen for group participant joined to keep UI ticking (handled in useCall but ensure ended clears)
+    const onGroupParticipantJoined = () => {
+      // no-op, useCall handles mesh; just ensure not idle
+    };
+    socket.on("group-call-participant-joined", onGroupParticipantJoined);
 
     return () => {
       socket.off("call-initiated", onInitiated);
@@ -194,6 +199,7 @@ export const CallProvider = ({ children }: any) => {
       socket.off("incoming-group-call", onIncomingGroup);
       socket.off("group-call-ended", onGroupEnded);
       socket.off("group-call-started", onGroupStarted);
+      socket.off("group-call-participant-joined");
     };
   }, []);
 

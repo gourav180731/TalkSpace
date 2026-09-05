@@ -2,8 +2,21 @@ import { Request, Response } from "express";
 import UserMOdel from "../../models/user.model";
 import MessageModal from "../../models/message.model";
 import { Types } from "mongoose";
-import { onlineUsers } from "../../socket";
+import { onlineUsers, userSockets } from "../../socket";
 import { getIO } from "../../socketEmitter";
+
+function emitToUserAll(io:any, userId:string, event:string, data:any){
+  const set = userSockets.get(userId);
+  if(set){ for(const sid of set) io.to(sid).emit(event,data); return true; }
+  const legacy = onlineUsers.get(userId);
+  if(legacy){ io.to(legacy).emit(event,data); return true; }
+  return false;
+}
+function isOnline(userId:string){
+  const set = userSockets.get(userId);
+  if(set && set.size>0) return true;
+  return !!onlineUsers.get(userId);
+}
 import mongoose from "mongoose";
 import { IMessage } from "../../models/message.model";
 import { getChatId } from "../../utils/constants";
@@ -348,28 +361,20 @@ const populatedMessage = await MessageModal.findOne({
     const receiverIdStr = receiver._id.toString();
     const senderIdStr = sender._id.toString();
 
-    const receiverSocketId = onlineUsers.get(receiverIdStr);
     const io = getIO();
+    const receiverOnline = isOnline(receiverIdStr);
     // mark delivered if receiver online
-    if (receiverSocketId) {
+    if (receiverOnline) {
       await MessageModal.updateOne({ _id: message._id }, { $set: { status: "delivered" } });
       (msg as any).status = "delivered";
     }
 
-       const senderSocketId = onlineUsers.get(senderIdStr);
-      if (senderSocketId) {
-  io.to(senderSocketId).emit("new-message", {
-    message: msg,
-  });
-  if (receiverSocketId) io.to(senderSocketId).emit("message-delivered", { messageId: message._id, to: receiverIdStr });
-}
-    if (receiverSocketId) {
-  io.to(receiverSocketId).emit("new-message", {
-    message: {
-      ...msg,
-      clientId,
-    },
-  });
+      // emit to sender all sockets
+  emitToUserAll(io, senderIdStr, "new-message", { message: msg });
+  if (receiverOnline) emitToUserAll(io, senderIdStr, "message-delivered", { messageId: message._id, to: receiverIdStr });
+
+    if (receiverOnline) {
+  emitToUserAll(io, receiverIdStr, "new-message", { message: { ...msg, clientId } });
 
   // Check if chat is muted for receiver (persisted)
   let isMutedForReceiver=false;
@@ -378,10 +383,7 @@ const populatedMessage = await MessageModal.findOne({
     const entry=freshReceiver?.mutedChats?.find((c:any)=> c.chatId===senderIdStr);
     if(entry) isMutedForReceiver = !entry.muteUntil || new Date(entry.muteUntil) > new Date();
   }catch{}
-  io.to(receiverSocketId).emit("unread-update", {
-    from: senderIdStr,
-    muted: isMutedForReceiver,
-  });
+  emitToUserAll(io, receiverIdStr, "unread-update", { from: senderIdStr, muted: isMutedForReceiver });
     }
     if (receiver.isBot) {
   handleAIBotReply({
@@ -427,10 +429,7 @@ export const markMessagesAsRead = async (req: Request, res: Response) => {
     { $set: { isRead: true, status: "read" } }
   );
   const io = getIO();
-  const friendSocket = onlineUsers.get(friendId);
-  if (friendSocket) {
-    io.to(friendSocket).emit("messages-read", { by: myId });
-  }
+  emitToUserAll(io, friendId, "messages-read", { by: myId });
   return res.json({ success: true });
 };
 
@@ -497,20 +496,8 @@ export const deleteMessageForEveryone = async (req: Request, res: Response) => {
 
     const io = getIO();
 
-    const receiverSocketId = onlineUsers.get(message.receiverId.toString());
-    const senderSocketId = onlineUsers.get(userId);
-
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit("message-deleted", {
-        messageId,
-      });
-    }
-
-    if (senderSocketId) {
-      io.to(senderSocketId).emit("message-deleted", {
-        messageId,
-      });
-    }
+    emitToUserAll(io, message.receiverId.toString(), "message-deleted", { messageId });
+    emitToUserAll(io, userId, "message-deleted", { messageId });
 
     res.json({ success: true });
   } catch (error) {
@@ -569,21 +556,13 @@ export const reactToMessage = async (req:Request, res:Response) => {
     const senderId = message.senderId.toString();
     const receiverId = message.receiverId.toString();
 
-    const receiverSocketId = onlineUsers.get(receiverId);
-    const senderSocketId = onlineUsers.get(senderId);
-
     const payload = {
       messageId: message._id,
       reactions: message.reactions,
     };
 
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit("message-reaction", payload);
-    }
-
-    if (senderSocketId) {
-      io.to(senderSocketId).emit("message-reaction", payload);
-    }
+    emitToUserAll(io, receiverId, "message-reaction", payload);
+    emitToUserAll(io, senderId, "message-reaction", payload);
 
     return res.json({
       success: true,
@@ -604,8 +583,8 @@ export const editMessage = async (req:Request,res:Response)=>{
     const fifteen=15*60*1000; if(Date.now()-new Date((message as any).createdAt).getTime() > fifteen) return res.status(400).json({success:false,msg:"Edit window expired (15m)"});
     message.editHistory.push({originalText: message.text||"", editedAt:new Date()} as any); message.text=text; message.isEdited=true; message.editedAt=new Date(); await message.save();
     const io=getIO(); const payload={messageId: message._id, newText:text, isEdited:true, editedAt:message.editedAt};
-    const s=onlineUsers.get(message.senderId.toString()); const r=onlineUsers.get(message.receiverId.toString());
-    if(s) io.to(s).emit("message-edited", payload); if(r) io.to(r).emit("message-edited", payload);
+    emitToUserAll(io, message.senderId.toString(), "message-edited", payload);
+    emitToUserAll(io, message.receiverId.toString(), "message-edited", payload);
     return res.json({success:true, message});
   }catch(e){ return res.status(500).json({success:false,msg:"error"});}
 };

@@ -307,20 +307,19 @@ export default function CallWindow() {
     callSocket.stopAllAudio();
     const inc = callSocket.incomingCall;
     if(inc?.isGroup){
-      // Group call accept: set connected, get media if needed, notify group
       try{
-        const stream = await navigator.mediaDevices.getUserMedia({ audio:{echoCancellation:true, noiseSuppression:true}, video: inc.type==="video" });
-        const ctx:any = callSocket as any;
-        if(ctx.localStreamRef) ctx.localStreamRef.current = stream;
-        if(ctx.localVideoRef?.current){ ctx.localVideoRef.current.srcObject = stream; ctx.localVideoRef.current.muted=true; ctx.localVideoRef.current.play().catch(()=>{}); }
-        if(ctx.remoteVideoRef?.current && stream && inc.type==="video"){
-          // For group, show local as remote placeholder
-          ctx.remoteVideoRef.current.srcObject = stream;
-          ctx.remoteVideoRef.current.play().catch(()=>{});
-        }
-      }catch{}
-      socket.emit("group-call-accept", { groupId: inc.groupId || inc.from, callId: inc.callId });
-      callSocket.setCallStatus("connected");
+        await (call as any).acceptGroupCall?.(inc.groupId || inc.from, inc.callId, inc.type||"audio");
+      }catch(e){
+        // fallback legacy
+        try{
+          const stream = await navigator.mediaDevices.getUserMedia({ audio:{echoCancellation:true, noiseSuppression:true}, video: inc.type==="video" });
+          const ctx:any = callSocket as any;
+          if(ctx.localStreamRef) ctx.localStreamRef.current = stream;
+          if(ctx.localVideoRef?.current){ ctx.localVideoRef.current.srcObject = stream; ctx.localVideoRef.current.muted=true; ctx.localVideoRef.current.play().catch(()=>{}); }
+        }catch{}
+        socket.emit("group-call-accept", { groupId: inc.groupId || inc.from, callId: inc.callId });
+        callSocket.setCallStatus("connected");
+      }
       callSocket.setIncomingCall(null);
       return;
     }
@@ -391,6 +390,9 @@ export default function CallWindow() {
 
         {/* ── MINIMIZED FLOATING CALL ── */}
         {isActive && callSocket.isMinimized && (
+          callSocket.callUser?.isGroup ? (
+            <GroupMinimizedBubble isVideo={isVideo} isConnected={isConnected} remoteName={remoteName} seconds={seconds} fmt={fmt} isMuted={isMuted} onEnd={handleEnd} onMaximize={()=> callSocket.maximizeCall()} />
+          ) : (
           <MinimizedCallBubble
             isVideo={isVideo}
             isConnected={isConnected}
@@ -404,12 +406,30 @@ export default function CallWindow() {
             localVideoRef={localVideoRef}
             remoteVideoRef={remoteVideoRef}
           />
+          )
         )}
 
         {/* ── ACTIVE CALL ── */}
         {isActive && !callSocket.isMinimized && (
           <>
             <div className="cw-backdrop" onClick={()=> callSocket.minimizeCall()} />
+            {callSocket.callUser?.isGroup ? (
+              <GroupActiveCallWindow
+                isVideo={isVideo}
+                isConnected={isConnected}
+                remoteName={remoteName}
+                remoteAvatar={remoteAvatar}
+                seconds={seconds}
+                fmt={fmt}
+                isMuted={isMuted}
+                isSpeakerMuted={isSpeakerMuted}
+                onMute={handleMute}
+                onSpeaker={handleSpeaker}
+                onEnd={handleEnd}
+                onMinimize={()=> callSocket.minimizeCall()}
+                onFlip={() => call.switchCamera()}
+              />
+            ) : (
             <ActiveCallWindow
               isVideo={isVideo}
               isConnected={isConnected}
@@ -427,6 +447,7 @@ export default function CallWindow() {
               remoteVideoRef={remoteVideoRef}
               localVideoRef={localVideoRef}
             />
+            )}
           </>
         )}
       </div>
@@ -969,6 +990,110 @@ function SpeakerIcon({ muted }: { muted: boolean }) {
       <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
       <path d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14" />
     </svg>
+  );
+}
+function GroupActiveCallWindow({isVideo,isConnected,remoteName,seconds,fmt,isMuted,isSpeakerMuted,onMute,onSpeaker,onEnd,onMinimize,onFlip}:any){
+  const { localVideoRef, localStreamRef, groupStreamsRef, groupTick } = useGlobalCall() as any;
+  // force re-render on groupTick
+  const [, setRenderTick]=useState(0);
+  useEffect(()=>{ setRenderTick(v=>v+1); },[groupTick]);
+  // attach local
+  useEffect(()=>{
+    if(localStreamRef?.current && localVideoRef.current){
+      localVideoRef.current.srcObject = localStreamRef.current;
+      localVideoRef.current.muted=true;
+      localVideoRef.current.play().catch(()=>{});
+    }
+  },[localVideoRef, isConnected]);
+  const streams: Array<[string, MediaStream]> = groupStreamsRef ? Array.from(groupStreamsRef.current.entries()) as any : [];
+  const total = streams.length + 1; // + local
+  // create refs map for remote videos
+  const tileRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
+  useEffect(()=>{
+    for(const [pid, stream] of streams){
+      const el = tileRefs.current.get(pid);
+      if(el && el.srcObject !== stream){
+        el.srcObject = stream;
+        el.play().catch(()=>{});
+      }
+    }
+  },[streams.map(s=>s[0]).join(","), groupTick]);
+  return (
+    <div className={`cw-window cw-anim-scale-in${isVideo ? " is-video" : ""}`} style={{ position:"fixed", display:"flex", flexDirection:"column" }}>
+      <TitleBar remoteName={remoteName} isConnected={isConnected} isVideo={isVideo} />
+      <button onClick={onMinimize} style={{position:"absolute", top:10, left:14, zIndex:5, background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.15)", color:"#fff", padding:"6px 10px", borderRadius:99, fontSize:11, cursor:"pointer"}}>— Minimize</button>
+      <div style={{position:"absolute", top:48, right:14, zIndex:5, background:"rgba(0,0,0,0.45)", color:"#fff", padding:"4px 8px", borderRadius:8, fontSize:11}}>{isConnected ? fmt(seconds) : "Connecting…"} · {total} participants</div>
+      {/* GRID */}
+      <div style={{flex:1, display:"grid", gap:8, padding: "56px 12px 12px 12px", overflow:"hidden",
+        gridTemplateColumns: total<=2 ? "1fr 1fr" : total<=4 ? "1fr 1fr" : "1fr 1fr 1fr",
+        gridAutoRows:"1fr",
+        alignContent:"stretch"
+      }}>
+        {/* Local tile */}
+        <div style={{position:"relative", background:"#0a0a0a", borderRadius:12, overflow:"hidden", border:"2px solid rgba(255,255,255,0.12)"}}>
+          {isVideo ? (
+            <video ref={localVideoRef} autoPlay muted playsInline style={{width:"100%", height:"100%", objectFit:"cover"}} />
+          ) : (
+            <div style={{width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center", background:"linear-gradient(135deg,#1c1511,#0f1d1a)"}}>
+              <div style={{width:64, height:64, borderRadius:"50%", background:"rgba(255,255,255,0.1)", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff"}}>You</div>
+            </div>
+          )}
+          <span style={{position:"absolute", bottom:6, left:6, background:"rgba(0,0,0,0.6)", color:"#fff", fontSize:10, padding:"2px 6px", borderRadius:6}}>You {isMuted?"🔇":""}</span>
+        </div>
+        {/* Remote tiles */}
+        {streams.map(([pid, stream]:any)=>{
+          const isAudioOnly = stream.getVideoTracks().length===0 || !isVideo;
+          return (
+            <div key={pid} style={{position:"relative", background:"#0a0a0a", borderRadius:12, overflow:"hidden", border:"2px solid rgba(255,255,255,0.12)"}}>
+              {isAudioOnly ? (
+                <div style={{width:"100%", height:"100%", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:"linear-gradient(135deg,#1e1a2e,#0f1d1a)", gap:8}}>
+                  <div style={{width:56, height:56, borderRadius:"50%", background:"rgba(99,102,241,0.3)", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontWeight:600}}>{pid.slice(-4).toUpperCase()}</div>
+                  <span style={{color:"rgba(255,255,255,0.6)", fontSize:11}}>{pid.slice(0,6)}…</span>
+                  <span style={{color:"#4ade80", fontSize:10, display:"flex", alignItems:"center", gap:4}}><span style={{width:6,height:6,borderRadius:"50%", background:"#22c55e", display:"inline-block"}}/> connected</span>
+                  <audio autoPlay playsInline ref={(el:any)=>{ if(el && el.srcObject!==stream){ el.srcObject=stream; el.play().catch(()=>{}); }}} style={{display:"none"}} />
+                </div>
+              ) : (
+                <video ref={(el:any)=>{ if(el){ tileRefs.current.set(pid, el); if(el.srcObject!==stream){ el.srcObject=stream; el.play().catch(()=>{}); }}}} autoPlay playsInline style={{width:"100%", height:"100%", objectFit:"cover"}} />
+              )}
+              {/* hidden audio for video tiles */}
+              <audio autoPlay playsInline ref={(el:any)=>{ if(el && stream.getAudioTracks().length>0 && el.srcObject!==stream){ el.srcObject=stream; el.play().catch(()=>{}); }}} style={{position:"absolute", opacity:0, pointerEvents:"none", width:0, height:0}} />
+              <span style={{position:"absolute", bottom:6, left:6, background:"rgba(0,0,0,0.6)", color:"#fff", fontSize:10, padding:"2px 6px", borderRadius:6}}>{pid.slice(-6)}</span>
+            </div>
+          );
+        })}
+        {streams.length===0 && (
+          <div style={{display:"flex", alignItems:"center", justifyContent:"center", color:"rgba(255,255,255,0.5)", fontSize:12}}>Waiting for others to join…</div>
+        )}
+      </div>
+      <ControlBar isVideo={isVideo} isMuted={isMuted} isSpeakerMuted={isSpeakerMuted} onMute={onMute} onSpeaker={onSpeaker} onEnd={onEnd} onFlip={onFlip} />
+    </div>
+  );
+}
+function GroupMinimizedBubble({isConnected,remoteName,seconds,fmt,isMuted,onEnd,onMaximize}:any){
+  const W=148; const H=96; const MARGIN=8; const BOTTOM_OFFSET=88;
+  const [pos,setPos]=useState({x:0,y:0}); const [snapping,setSnapping]=useState(false);
+  const draggingRef=useRef(false); const hasDraggedRef=useRef(false);
+  const startPtrRef=useRef({x:0,y:0}); const startPosRef=useRef({x:0,y:0});
+  const { groupStreamsRef } = useGlobalCall() as any;
+  const count = (groupStreamsRef ? groupStreamsRef.current.size : 0) +1;
+  useEffect(()=>{ if(typeof window!=='undefined') setPos({ x: window.innerWidth - W - MARGIN, y: window.innerHeight - H - BOTTOM_OFFSET }); },[]);
+  const clamp=(x:number,y:number)=>{ const maxX=(typeof window!=='undefined'? window.innerWidth:400)-W-MARGIN; const maxY=(typeof window!=='undefined'? window.innerHeight:800)-H-16; return {x: Math.max(MARGIN,Math.min(x,maxX)), y: Math.max(MARGIN,Math.min(y,maxY))}; };
+  const snapToCorner=(x:number,y:number)=>{ if(typeof window==='undefined') return {x,y}; const corners=[{x:MARGIN,y:MARGIN},{x:window.innerWidth-W-MARGIN,y:MARGIN},{x:MARGIN,y:window.innerHeight-H-BOTTOM_OFFSET},{x:window.innerWidth-W-MARGIN,y:window.innerHeight-H-BOTTOM_OFFSET}]; let best=corners[0],d=Infinity; for(const c of corners){ const di=Math.hypot(c.x-x,c.y-y); if(di<d){d=di;best=c;}} return best; };
+  const onPointerDown=(e:any)=>{ if((e.target as HTMLElement).closest('button')) return; const p=e.touches?e.touches[0]:e; draggingRef.current=true; hasDraggedRef.current=false; setSnapping(false); startPtrRef.current={x:p.clientX,y:p.clientY}; startPosRef.current={...pos}; if(e.cancelable) e.preventDefault(); const move=(ev:any)=>{ if(!draggingRef.current) return; const pp=ev.touches?ev.touches[0]:ev; const dx=pp.clientX-startPtrRef.current.x; const dy=pp.clientY-startPtrRef.current.y; if(Math.hypot(dx,dy)>4) hasDraggedRef.current=true; setPos(clamp(startPosRef.current.x+dx, startPosRef.current.y+dy)); }; const up=()=>{ draggingRef.current=false; window.removeEventListener("mousemove",move as any); window.removeEventListener("mouseup",up as any); window.removeEventListener("touchmove",move as any); window.removeEventListener("touchend",up as any); if(hasDraggedRef.current){ setSnapping(true); setPos(prev=> snapToCorner(prev.x,prev.y)); setTimeout(()=> setSnapping(false),280);} }; window.addEventListener("mousemove",move as any,{passive:false}); window.addEventListener("mouseup",up as any); window.addEventListener("touchmove",move as any,{passive:false}); window.addEventListener("touchend",up as any); };
+  const onClickContainer=()=>{ if(hasDraggedRef.current){hasDraggedRef.current=false; return;} onMaximize(); };
+  return (
+    <div onMouseDown={onPointerDown} onTouchStart={onPointerDown} onClick={onClickContainer} style={{position:"fixed", left:pos.x, top:pos.y, zIndex:1000, width:W, height:H, borderRadius:16, overflow:"hidden", background:"linear-gradient(135deg,#1c1511,#0f1d1a)", border:"1px solid rgba(255,255,255,0.15)", boxShadow:"0 10px 30px rgba(0,0,0,0.5)", display:"flex", flexDirection:"column", cursor:"grab", touchAction:"none", transition: snapping ? "left 0.24s ease, top 0.24s ease" : undefined, userSelect:"none"}}>
+      <div style={{height:14, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(255,255,255,0.06)", flexShrink:0}}><span style={{width:22,height:3,borderRadius:99, background:"rgba(255,255,255,0.35)"}}/></div>
+      <div style={{flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:6, padding:8}}>
+        <div style={{width:36, height:36, borderRadius:"50%", background:"rgba(99,102,241,0.3)", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontSize:11, fontWeight:600}}>{count}</div>
+        <div style={{flex:1, minWidth:0}}><div style={{color:"#fff", fontSize:11, fontWeight:600, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}>{remoteName}</div><div style={{color:isConnected?"#4ade80":"rgba(255,255,255,0.6)", fontSize:9, display:"flex", alignItems:"center", gap:4}}><span style={{width:6,height:6,borderRadius:"50%", background:isConnected?"#22c55e":"#f59e0b", display:"inline-block"}}/> {isConnected? `${fmt(seconds)} · ${count} ppl` : "Calling…"}</div></div>
+        {isMuted && <span style={{background:"rgba(239,68,68,0.9)", color:"#fff", fontSize:8, padding:"2px 4px", borderRadius:6}}>🔇</span>}
+      </div>
+      <div style={{display:"flex", gap:4, padding:4, background:"rgba(0,0,0,0.4)", justifyContent:"space-between"}}>
+        <button onClick={(e)=>{e.stopPropagation(); onMaximize();}} style={{flex:1, background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.1)", color:"#fff", fontSize:10, borderRadius:8, padding:"4px"}}>↗ Restore</button>
+        <button onClick={(e)=>{e.stopPropagation(); onEnd();}} style={{flex:1, background:"#ef4444", border:"none", color:"#fff", fontSize:10, borderRadius:8, padding:"4px"}}>✕ End</button>
+      </div>
+    </div>
   );
 }
 function FlipIcon() {

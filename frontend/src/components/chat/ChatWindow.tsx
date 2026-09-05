@@ -72,9 +72,34 @@ const callSocket = useGlobalCall();
     if(isGroup){
       getGroupMessages(chat._id).then(r=> setGroupMessages(r.data.messages||[])).catch(()=>{});
       socket.emit("join-group",{groupId:chat._id});
-      return ()=>{ socket.emit("leave-group",{groupId:chat._id}); };
+      const onGroupMsg=(d:any)=>{
+        if(String(d.groupId)!==String(chat._id)) return;
+        const m=d.message;
+        if(!m) return;
+        // filter deletedFor
+        if(m.deletedFor?.includes(user?._id)) return;
+        setGroupMessages(prev=>{
+          if(prev.some((x:any)=> x._id===m._id)) return prev;
+          // dedup by clientId for optimistic
+          if(m.clientId && prev.some((x:any)=> x.clientId===m.clientId)) {
+            return prev.map((x:any)=> x.clientId===m.clientId ? {...x, ...m, status:"sent"}: x);
+          }
+          const merged=[...prev, m].sort((a:any,b:any)=> new Date(a.createdAt).getTime()-new Date(b.createdAt).getTime());
+          return merged;
+        });
+        // auto scroll if at bottom
+        if(shouldAutoScrollRef.current) requestAnimationFrame(()=> endRef.current?.scrollIntoView({behavior:"smooth"}));
+      };
+      const onDeleted=({groupId:gid,messageId}:any)=>{ if(String(gid)!==String(chat._id)) return; setGroupMessages(prev=> prev.map((mm:any)=> mm._id===messageId? {...mm,isDeleted:true,text:"",file:""}: mm)); };
+      const onEdited=({groupId:gid,messageId,newText}:any)=>{ if(String(gid)!==String(chat._id)) return; setGroupMessages(prev=> prev.map((mm:any)=> mm._id===messageId? {...mm,text:newText,isEdited:true}:mm)); };
+      const onReaction=({groupId:gid,messageId,reactions}:any)=>{ if(String(gid)!==String(chat._id)) return; setGroupMessages(prev=> prev.map((mm:any)=> mm._id===messageId? {...mm,reactions}:mm)); };
+      socket.on("group-message", onGroupMsg);
+      socket.on("message-deleted", onDeleted);
+      socket.on("message-edited", onEdited);
+      socket.on("message-reaction", onReaction);
+      return ()=>{ socket.emit("leave-group",{groupId:chat._id}); socket.off("group-message", onGroupMsg); socket.off("message-deleted", onDeleted); socket.off("message-edited", onEdited); socket.off("message-reaction", onReaction); };
     }
-  },[chat._id, isGroup]);
+  },[chat._id, isGroup, user?._id]);
 
   useEffect(()=>{
     getUserSettings().then(r=>{
