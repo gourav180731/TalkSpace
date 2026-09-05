@@ -165,7 +165,7 @@ export const getGlobalHistory = async (req:Request,res:Response)=>{
     const groupIds = userGroups.map((g:any)=> g._id);
     const or:any[] = [{ caller: userId }, { receiver: userId }];
     if(groupIds.length>0) or.push({ groupId: { $in: groupIds }, isGroupCall: true });
-    const histories=await CallHistory.find({ $or: or })
+    const histories=await CallHistory.find({ $or: or, deletedFor: { $ne: userId } })
       .populate("caller","username avatar")
       .populate("receiver","username avatar")
       .populate("groupId","name avatar")
@@ -221,7 +221,7 @@ export const getChatHistory = async (req:Request,res:Response)=>{
       const { default: GroupChat } = await import("../../models/groupChat.model");
       const grp:any = await GroupChat.findOne({ _id: otherId, members: userId }).lean();
       if(grp){
-        const histories=await CallHistory.find({ groupId: otherId, isGroupCall: true }).sort({createdAt:-1}).skip(skip).limit(limit).lean();
+        const histories=await CallHistory.find({ groupId: otherId, isGroupCall: true, deletedFor: { $ne: userId } }).sort({createdAt:-1}).skip(skip).limit(limit).lean();
         const mapped=histories.map((h:any)=>{
           const callerId = h.caller?._id ? h.caller._id.toString() : h.caller.toString();
           const isOutgoing=callerId===userId;
@@ -245,7 +245,8 @@ export const getChatHistory = async (req:Request,res:Response)=>{
       $or: [
         { caller: userId, receiver: otherId },
         { caller: otherId, receiver: userId }
-      ]
+      ],
+      deletedFor: { $ne: userId }
     }).sort({createdAt:-1}).skip(skip).limit(limit).lean();
     const mapped=histories.map((h:any)=>{
       const callerId = h.caller?._id ? h.caller._id.toString() : h.caller.toString();
@@ -262,5 +263,40 @@ export const getChatHistory = async (req:Request,res:Response)=>{
       };
     });
     return res.json({success:true, history: mapped});
+  }catch(e){ return res.status(500).json({success:false,msg:"error"});}
+};
+
+export const deleteSingle = async (req:Request,res:Response)=>{
+  try{
+    const userId=req.user?.userId;
+    const callId=req.params.id;
+    if(!Types.ObjectId.isValid(callId)) return res.status(400).json({success:false,msg:"Invalid id"});
+    const call:any = await CallHistory.findById(callId);
+    if(!call) return res.status(404).json({success:false,msg:"Not found"});
+    // authorize: user must be caller, receiver, or group member
+    let isAuthorized = false;
+    if(call.caller?.toString()===userId || call.receiver?.toString()===userId) isAuthorized = true;
+    if(call.isGroupCall && call.groupId){
+      try{ const { default: GroupChat } = await import("../../models/groupChat.model"); const g:any = await GroupChat.findOne({_id: call.groupId, members: userId}); if(g) isAuthorized = true; }catch{}
+    }
+    if(!isAuthorized) return res.status(403).json({success:false,msg:"Not authorized"});
+    if(!call.deletedFor) call.deletedFor=[];
+    if(!call.deletedFor.includes(userId)) call.deletedFor.push(userId);
+    await call.save();
+    return res.json({success:true});
+  }catch(e){ return res.status(500).json({success:false,msg:"error"});}
+};
+
+export const deleteAll = async (req:Request,res:Response)=>{
+  try{
+    const userId=req.user?.userId;
+    // Add userId to deletedFor for all calls visible to user
+    const { default: GroupChat } = await import("../../models/groupChat.model");
+    const groups:any = await GroupChat.find({ members: userId }).select("_id").lean();
+    const groupIds = groups.map((g:any)=> g._id);
+    const or:any[] = [{caller: userId}, {receiver: userId}];
+    if(groupIds.length>0) or.push({ groupId: {$in: groupIds}, isGroupCall:true });
+    await CallHistory.updateMany({ $or: or, deletedFor: { $ne: userId } }, { $addToSet: { deletedFor: userId } });
+    return res.json({success:true});
   }catch(e){ return res.status(500).json({success:false,msg:"error"});}
 };

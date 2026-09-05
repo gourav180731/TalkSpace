@@ -8,8 +8,10 @@ import FriendsPicker from "./FriendsPicker";
 import CreateGroupModal from "../groups/CreateGroupModal";
 import GroupList from "../groups/GroupList";
 import SidebarHeaderMenu from "./SidebarHeaderMenu";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSidebar } from "./useSidebar";
+import { getFriendRequestsApi } from "../../apis/friend.api";
+import { socket } from "../../apis/socket";
 
 type SidebarProps = {
   onSelectChat: (user: any) => void;
@@ -41,6 +43,39 @@ export default function Sidebar({
   } = useSidebar() as any;
   const [showGroupModal,setShowGroupModal]=useState(false);
   const [selectedChatIds,setSelectedChatIds]=useState<Set<string>>(new Set());
+  const [requestCount,setRequestCount]=useState(0);
+  const [groupUnread,setGroupUnread]=useState<Set<string>>(new Set());
+  const chatsUnread = chats.reduce((s:any,c:any)=> s + (c.unreadCount||0), 0);
+  // Fetch requests count and listen realtime
+  useEffect(()=>{
+    const fetchRequests=async()=>{
+      try{ const r=await getFriendRequestsApi(); const list=r.data?.requests || r.data?.data || r.data || []; setRequestCount(Array.isArray(list)? list.length : 0); }catch{}
+    };
+    fetchRequests();
+    const onReq=()=> fetchRequests();
+    const onGroupMsg=(d:any)=>{
+      const gid=d.groupId?.toString();
+      if(!gid) return;
+      const sel = (window as any).__selectedChat;
+      if(sel && sel.isGroup && sel._id===gid) return;
+      setGroupUnread(prev=> new Set([...prev, gid]));
+    };
+    socket.on("friend-request", onReq);
+    socket.on("friend-request-accepted", onReq);
+    socket.on("friend-request-rejected", onReq);
+    socket.on("group-member-added", onReq);
+    socket.on("group-message", onGroupMsg);
+    socket.on("new-message", onReq);
+    return ()=>{ socket.off("friend-request", onReq); socket.off("friend-request-accepted", onReq); socket.off("friend-request-rejected", onReq); socket.off("group-member-added", onReq); socket.off("group-message", onGroupMsg); socket.off("new-message", onReq); };
+  },[]);
+  useEffect(()=>{
+    // expose selectedChat for group unread logic
+    (window as any).__selectedChat = null;
+  },[]);
+  useEffect(()=>{
+    if(mode==="requests") setRequestCount(0);
+    if((mode as any)==="groups") setGroupUnread(new Set());
+  },[mode]);
   // expose for header menu
   (window as any).__setChatSelectMode = setSelectMode;
 
@@ -112,39 +147,39 @@ export default function Sidebar({
               setMode("chats");
               setQuery("");
             }}
-            className={`text-xs px-3 py-1.5 rounded-full font-medium border transition ${
+            className={`text-xs px-3 py-1.5 rounded-full font-medium border transition flex items-center gap-1.5 ${
               mode === "chats"
                 ? "bg-indigo-600 text-white border-indigo-500"
                 : "bg-white/5 hover:bg-white/10 text-white/80 border-white/10"
             }`}
           >
-            Chats
+            Chats {chatsUnread>0 && <span className="min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-white text-indigo-600 text-[10px] font-bold">{chatsUnread>99?"99+":chatsUnread}</span>}
           </button>
           <button
             onClick={() => {
               setMode("requests");
               setQuery("");
             }}
-            className={`text-xs px-3 py-1.5 rounded-full font-medium border transition ${
+            className={`text-xs px-3 py-1.5 rounded-full font-medium border transition flex items-center gap-1.5 ${
               mode === "requests"
                 ? "bg-indigo-600 text-white border-indigo-500"
                 : "bg-white/5 hover:bg-white/10 text-white/80 border-white/10"
             }`}
           >
-            Requests
+            Requests {requestCount>0 && <span className="min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-rose-500 text-white text-[10px] font-bold">{requestCount>99?"99+":requestCount}</span>}
           </button>
           <button
             onClick={() => {
               setMode("groups" as any);
               setQuery("");
             }}
-            className={`text-xs px-3 py-1.5 rounded-full font-medium border transition ${
+            className={`text-xs px-3 py-1.5 rounded-full font-medium border transition flex items-center gap-1.5 ${
               (mode as any) === "groups"
                 ? "bg-indigo-600 text-white border-indigo-500"
                 : "bg-white/5 hover:bg-white/10 text-white/80 border-white/10"
             }`}
           >
-            Groups
+            Groups {groupUnread.size>0 && <span className="min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-emerald-500 text-white text-[10px] font-bold">{groupUnread.size>99?"99+":groupUnread.size}</span>}
           </button>
         </div>
       </div>

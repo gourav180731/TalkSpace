@@ -6,7 +6,7 @@ export type CallStatus = "missed" | "rejected" | "completed" | "cancelled" | "in
 export interface ICallHistory extends Document {
   callId?: string;
   caller: Types.ObjectId;
-  receiver: Types.ObjectId;
+  receiver?: Types.ObjectId;
   groupId?: Types.ObjectId;
   isGroupCall?: boolean;
   callType: CallType;
@@ -15,6 +15,7 @@ export interface ICallHistory extends Document {
   answeredAt?: Date;
   endTime?: Date;
   duration?: number; // seconds
+  deletedFor?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -31,6 +32,7 @@ const callHistorySchema = new Schema<ICallHistory>({
   answeredAt: { type: Date },
   endTime: { type: Date },
   duration: { type: Number },
+  deletedFor: { type: [String], default: [], index: true },
 }, { timestamps: true });
 
 callHistorySchema.index({ caller:1, createdAt:-1 });

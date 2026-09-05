@@ -66,14 +66,20 @@ export const updateGroup = async (req: Request, res: Response) => {
   try {
     const g = (req as any).group;
     if (!(req as any).isGroupAdmin) return res.status(403).json({success:false, msg:"Admin only"});
-    const { name, description } = req.body;
+    const { name, description, removeAvatar } = req.body;
     if (name) g.name = name.trim();
     if (description !== undefined) g.description = description;
-    if ((req as any).file) {
-      const file=(req as any).file; const b64=`data:${file.mimetype};base64,${file.buffer.toString("base64")}`; const up:any=await cloudinary.uploader.upload(b64,{folder:"group-avatars"}); g.avatar=up.secure_url;
+    if (removeAvatar === "true" || removeAvatar === true) {
+      g.avatar = undefined;
+    } else if ((req as any).file) {
+      const file=(req as any).file;
+      if(!file.mimetype.startsWith("image/")) return res.status(400).json({success:false, msg:"Only image allowed"});
+      if(file.size > 5*1024*1024) return res.status(400).json({success:false, msg:"Image too large, max 5MB"});
+      const b64=`data:${file.mimetype};base64,${file.buffer.toString("base64")}`; const up:any=await cloudinary.uploader.upload(b64,{folder:"group-avatars"}); g.avatar=up.secure_url;
     }
     await g.save();
-    try { const io=getIO(); g.members.forEach((m:any)=> io.to(m.toString()).emit("group-settings-updated",{groupId:g._id, settings:{name:g.name, avatar:g.avatar, description:g.description}})); }catch{}
+    await g.populate("members","username avatar");
+    try { const io=getIO(); g.members.forEach((m:any)=> io.to(m.toString()).emit("group-settings-updated",{groupId:g._id, settings:{name:g.name, avatar:g.avatar, description:g.description}})); io.to(g._id.toString()).emit("group-settings-updated",{groupId:g._id, settings:{name:g.name, avatar:g.avatar, description:g.description}}); }catch{}
     return res.json({success:true, group:g});
   } catch(e){ return res.status(500).json({success:false,msg:"error"});}
 };
@@ -137,7 +143,21 @@ export const demoteAdmin = async (req:Request,res:Response)=>{
 export const getGroupMessages = async (req:Request,res:Response)=>{
   try{
     const g=(req as any).group; const page=parseInt(req.query.page as string)||1; const limit=20; const skip=(page-1)*limit;
-    const messages=g.messages.slice().sort((a:any,b:any)=> b.createdAt.getTime()-a.createdAt.getTime()).slice(skip, skip+limit).reverse();
+    let messages=g.messages.slice().sort((a:any,b:any)=> b.createdAt.getTime()-a.createdAt.getTime()).slice(skip, skip+limit).reverse();
+    // Populate sender info for each message
+    try{
+      const senderIds:any[]=[...new Set(messages.map((m:any)=> m.senderId?.toString()).filter(Boolean))];
+      if(senderIds.length>0){
+        const users:any = await UserMOdel.find({_id: {$in: senderIds as any}}).select("username avatar firstName lastName").lean();
+        const map=new Map(users.map((u:any)=> [u._id.toString(), u]));
+        messages=messages.map((m:any)=>{
+          const obj = typeof m.toObject === 'function' ? m.toObject() : {...m};
+          const sender = map.get(m.senderId.toString());
+          if(sender) obj.senderId = sender;
+          return obj;
+        });
+      }
+    }catch{}
     return res.json({success:true, messages, hasMore: g.messages.length > skip+limit});
   }catch(e){return res.status(500).json({success:false,msg:"error"});}
 };

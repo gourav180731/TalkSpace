@@ -63,6 +63,11 @@ function MessageBubble({ msg, onReply, onJump, onDeleteForMe, isGroup, groupId, 
     );
   }
 
+  // Group sender info (Reference Image 5)
+  const senderObj = isGroup && typeof msg.senderId === 'object' && msg.senderId ? msg.senderId : null;
+  const senderName = senderObj ? (senderObj.username || senderObj.firstName || "Unknown") : null;
+  const senderAvatar = senderObj?.avatar;
+
   return (
     <div
       data-msg-id={msg._id ?? msg.clientId}
@@ -79,6 +84,12 @@ function MessageBubble({ msg, onReply, onJump, onDeleteForMe, isGroup, groupId, 
           ${isMe ? "bubble-me rounded-br-[8px]" : "bubble-them text-[#2b1f16] rounded-bl-[8px] dark:text-white"}
         `}
       >
+        {isGroup && !isMe && senderName && (
+          <div className="flex items-center gap-1.5 mb-1.5 -mt-1">
+            <img src={senderAvatar || `https://ui-avatars.com/api/?name=${senderName}`} className="w-5 h-5 rounded-full object-cover border border-white/10 shrink-0" alt={senderName} />
+            <span className="text-[11px] font-semibold text-indigo-300 truncate">{senderName}</span>
+          </div>
+        )}
         {/* ACTIONS spec 18 - dark popup #111b21 border white/15 blur-xl */}
         {showActions && (
           <div className="absolute z-20 bottom-full mb-2 left-1/2 -translate-x-1/2 w-64 bg-[#111b21] border border-white/15 backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.6)] rounded-2xl p-3 animate-scale-in">

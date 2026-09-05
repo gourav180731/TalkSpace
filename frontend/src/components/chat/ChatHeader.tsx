@@ -133,10 +133,35 @@ export default function ChatHeader({ user, onBack, onSearch, onSelectMode, onClo
         <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={()=> setShowGroupInfo(false)}>
           <div onClick={e=> e.stopPropagation()} className="w-full max-w-sm bg-[#121520] border border-white/10 rounded-3xl p-6 shadow-2xl">
             <div className="flex flex-col items-center gap-3 mb-4">
-              <img src={group.avatar||"/avatar-placeholder.png"} className="w-20 h-20 rounded-full object-cover border-2 border-indigo-500/30" alt="group"/>
+              <div className="relative">
+                <img src={group.avatar||"/avatar-placeholder.png"} className="w-20 h-20 rounded-full object-cover border-2 border-indigo-500/30" alt="group"/>
+                {(() => {
+                  const isAdmin = group.admins?.some((a:any)=> getMemberId(a)===currentUser?._id?.toString());
+                  if(!isAdmin) return null;
+                  return <label className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-indigo-600 border-2 border-[#121520] flex items-center justify-center cursor-pointer hover:bg-indigo-500" title="Change group photo">
+                    <span className="text-[11px]">📷</span>
+                    <input type="file" accept="image/*" hidden onChange={async(e)=>{
+                      const file=e.target.files?.[0]; if(!file) return;
+                      if(!file.type.startsWith("image/")){ alert("Only image allowed"); return; }
+                      if(file.size>5*1024*1024){ alert("Max 5MB"); return; }
+                      const fd=new FormData(); fd.append("avatar", file);
+                      try{ const { updateGroup } = await import("../../apis/group.api"); await updateGroup(group._id, fd); alert("Group photo updated"); }catch(err:any){ alert(err.response?.data?.msg||"Failed"); }
+                    }} />
+                  </label>;
+                })()}
+              </div>
               <h3 className="text-white font-semibold text-lg">{group.name}</h3>
               <p className="text-white/60 text-xs">{group.members?.length||0} members · {onlineCount} online</p>
               {group.description && <p className="text-white/70 text-sm text-center mt-1">{group.description}</p>}
+              {(() => {
+                const isAdmin = group.admins?.some((a:any)=> getMemberId(a)===currentUser?._id?.toString());
+                if(!isAdmin || !group.avatar) return null;
+                return <button onClick={async()=>{
+                  if(!confirm("Remove group photo?")) return;
+                  const fd=new FormData(); fd.append("removeAvatar","true");
+                  try{ const { updateGroup } = await import("../../apis/group.api"); await updateGroup(group._id, fd); alert("Group photo removed"); }catch(err:any){ alert(err.response?.data?.msg||"Failed"); }
+                }} className="text-xs text-white/50 hover:text-rose-300 underline">Remove photo</button>;
+              })()}
             </div>
             <div className="space-y-2 max-h-64 overflow-auto">
               <h4 className="text-indigo-400 font-semibold text-sm flex items-center gap-2"><Users size={16}/> Members</h4>
