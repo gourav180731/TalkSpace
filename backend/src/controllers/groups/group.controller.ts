@@ -181,6 +181,8 @@ export const demoteAdmin = async (req:Request,res:Response)=>{
     const g=(req as any).group; if(!(req as any).isGroupAdmin) return res.status(403).json({success:false,msg:"Admin only"});
     const memberId=req.params.memberId; if(g.admins.length<=1) return res.status(400).json({success:false,msg:"Must have at least one admin"});
     g.admins=g.admins.filter((a:any)=> a.toString()!==memberId); await g.save();
+    emitToMembers(g.members as any, "group-admin-demoted",{groupId:g._id, memberId});
+    emitToGroupRoom(g._id.toString(), "group-admin-demoted",{groupId:g._id, memberId});
     return res.json({success:true, group:g});
   }catch(e){return res.status(500).json({success:false,msg:"error"});}
 };

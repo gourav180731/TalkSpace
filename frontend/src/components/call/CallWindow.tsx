@@ -994,18 +994,22 @@ function SpeakerIcon({ muted }: { muted: boolean }) {
   );
 }
 function GroupActiveCallWindow({isVideo,isConnected,remoteName,seconds,fmt,isMuted,isSpeakerMuted,onMute,onSpeaker,onEnd,onMinimize,onFlip}:any){
-  const { localVideoRef, localStreamRef, groupStreamsRef, groupTick, callUser } = useGlobalCall() as any;
-  const { groups } = useGroup();
+  const { localVideoRef, localStreamRef, groupStreamsRef, groupTick, callUser, groupCallMembers } = useGlobalCall() as any;
   const { user: me } = useAuth();
-  const groupMembersMap = new Map<string, any>();
-  try{
+  const { groups } = useGroup();
+  let groupMembersMap: Map<string, any> = groupCallMembers || new Map();
+  if (!groupMembersMap || groupMembersMap.size===0) {
     const gid = callUser?._id || callUser?.groupId;
     const g = groups?.find((x:any)=> String(x._id)===String(gid));
-    if(g?.members) for(const m of g.members){
-      const id = typeof m==="string" ? m : (m._id||(m as any).id||"")?.toString();
-      if(id) groupMembersMap.set(id, m);
+    if(g?.members){
+      const m2=new Map();
+      for(const m of g.members){
+        const id = typeof m==="string" ? m : (m._id||(m as any).id||"")?.toString();
+        if(id) m2.set(id, typeof m==="string" ? {username: id.slice(-6)} : m);
+      }
+      if(m2.size>0) groupMembersMap=m2;
     }
-  }catch{}
+  }
   const [, setRenderTick]=useState(0);
   useEffect(()=>{ setRenderTick(v=>v+1); },[groupTick]);
   useEffect(()=>{
@@ -1054,7 +1058,7 @@ function GroupActiveCallWindow({isVideo,isConnected,remoteName,seconds,fmt,isMut
         {/* Local tile */}
         <div style={{position:"relative", background:"#0a0a0a", borderRadius:12, overflow:"hidden", border:"2px solid rgba(255,255,255,0.12)"}}>
           {isVideo ? (
-            <video ref={localVideoRef} autoPlay muted playsInline style={{width:"100%", height:"100%", objectFit:"cover"}} />
+            <video ref={localVideoRef} autoPlay muted playsInline style={{width:"100%", height:"100%", objectFit:"contain", background:"#000"}} />
           ) : (
             <div style={{width:"100%", height:"100%", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:"linear-gradient(135deg,#1c1511,#0f1d1a)", gap:8}}>
               {me?.avatar ? <img src={me.avatar} className="w-16 h-16 rounded-full object-cover border border-white/20" alt={me?.username} /> : <div style={{width:64, height:64, borderRadius:"50%", background:"rgba(255,255,255,0.1)", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff"}}>{(me?.username||"You").slice(0,2).toUpperCase()}</div>}
@@ -1078,7 +1082,7 @@ function GroupActiveCallWindow({isVideo,isConnected,remoteName,seconds,fmt,isMut
                   <audio autoPlay playsInline ref={(el:any)=>{ if(el && el.srcObject!==stream){ el.srcObject=stream; el.play().catch(()=>{}); }}} style={{display:"none"}} />
                 </div>
               ) : (
-                <video ref={(el:any)=>{ if(el){ tileRefs.current.set(pid, el); if(el.srcObject!==stream){ el.srcObject=stream; el.play().catch(()=>{}); }}}} autoPlay playsInline style={{width:"100%", height:"100%", objectFit:"cover"}} />
+                <video ref={(el:any)=>{ if(el){ tileRefs.current.set(pid, el); if(el.srcObject!==stream){ el.srcObject=stream; el.play().catch(()=>{}); }}}} autoPlay playsInline style={{width:"100%", height:"100%", objectFit:"contain", background:"#000"}} />
               )}
               {isAudioOnly ? null : <audio autoPlay playsInline ref={(el:any)=>{ if(el && stream.getAudioTracks().length>0 && el.srcObject!==stream){ el.srcObject=stream; el.play().catch(()=>{}); }}} style={{position:"absolute", opacity:0, pointerEvents:"none", width:0, height:0}} />}
               <span style={{position:"absolute", bottom:6, left:6, background:"rgba(0,0,0,0.7)", color:"#fff", fontSize:11, fontWeight:600, padding:"3px 8px", borderRadius:8, maxWidth:"80%", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{name}</span>
@@ -1094,28 +1098,68 @@ function GroupActiveCallWindow({isVideo,isConnected,remoteName,seconds,fmt,isMut
   );
 }
 function GroupMinimizedBubble({isConnected,remoteName,seconds,fmt,isMuted,onEnd,onMaximize}:any){
-  const W=148; const H=96; const MARGIN=8; const BOTTOM_OFFSET=88;
+  const isMobile = typeof window!=="undefined" ? window.innerWidth < 768 : false;
+  const W=isMobile? 260 : 340; const H=isMobile? 180 : 220; const MARGIN=12; const BOTTOM_OFFSET=88;
   const [pos,setPos]=useState({x:0,y:0}); const [snapping,setSnapping]=useState(false);
   const draggingRef=useRef(false); const hasDraggedRef=useRef(false);
   const startPtrRef=useRef({x:0,y:0}); const startPosRef=useRef({x:0,y:0});
-  const { groupStreamsRef } = useGlobalCall() as any;
+  const { groupStreamsRef, localStreamRef, groupCallMembers } = useGlobalCall() as any;
   const count = (groupStreamsRef ? groupStreamsRef.current.size : 0) +1;
+  const streams: Array<[string, MediaStream]> = groupStreamsRef ? Array.from(groupStreamsRef.current.entries()) as any : [];
+  // attach local to minimized preview
+  const miniLocalRef = useRef<HTMLVideoElement>(null);
+  useEffect(()=>{
+    if(localStreamRef?.current && miniLocalRef.current){
+      miniLocalRef.current.srcObject = localStreamRef.current;
+      miniLocalRef.current.muted=true;
+      miniLocalRef.current.play().catch(()=>{});
+    }
+  },[localStreamRef]);
   useEffect(()=>{ if(typeof window!=='undefined') setPos({ x: window.innerWidth - W - MARGIN, y: window.innerHeight - H - BOTTOM_OFFSET }); },[]);
   const clamp=(x:number,y:number)=>{ const maxX=(typeof window!=='undefined'? window.innerWidth:400)-W-MARGIN; const maxY=(typeof window!=='undefined'? window.innerHeight:800)-H-16; return {x: Math.max(MARGIN,Math.min(x,maxX)), y: Math.max(MARGIN,Math.min(y,maxY))}; };
   const snapToCorner=(x:number,y:number)=>{ if(typeof window==='undefined') return {x,y}; const corners=[{x:MARGIN,y:MARGIN},{x:window.innerWidth-W-MARGIN,y:MARGIN},{x:MARGIN,y:window.innerHeight-H-BOTTOM_OFFSET},{x:window.innerWidth-W-MARGIN,y:window.innerHeight-H-BOTTOM_OFFSET}]; let best=corners[0],d=Infinity; for(const c of corners){ const di=Math.hypot(c.x-x,c.y-y); if(di<d){d=di;best=c;}} return best; };
   const onPointerDown=(e:any)=>{ if((e.target as HTMLElement).closest('button')) return; const p=e.touches?e.touches[0]:e; draggingRef.current=true; hasDraggedRef.current=false; setSnapping(false); startPtrRef.current={x:p.clientX,y:p.clientY}; startPosRef.current={...pos}; if(e.cancelable) e.preventDefault(); const move=(ev:any)=>{ if(!draggingRef.current) return; const pp=ev.touches?ev.touches[0]:ev; const dx=pp.clientX-startPtrRef.current.x; const dy=pp.clientY-startPtrRef.current.y; if(Math.hypot(dx,dy)>4) hasDraggedRef.current=true; setPos(clamp(startPosRef.current.x+dx, startPosRef.current.y+dy)); }; const up=()=>{ draggingRef.current=false; window.removeEventListener("mousemove",move as any); window.removeEventListener("mouseup",up as any); window.removeEventListener("touchmove",move as any); window.removeEventListener("touchend",up as any); if(hasDraggedRef.current){ setSnapping(true); setPos(prev=> snapToCorner(prev.x,prev.y)); setTimeout(()=> setSnapping(false),280);} }; window.addEventListener("mousemove",move as any,{passive:false}); window.addEventListener("mouseup",up as any); window.addEventListener("touchmove",move as any,{passive:false}); window.addEventListener("touchend",up as any); };
   const onClickContainer=()=>{ if(hasDraggedRef.current){hasDraggedRef.current=false; return;} onMaximize(); };
+  const getNameMini=(uid:string)=>{
+    const m=groupCallMembers?.get?.(uid);
+    if(m) return m.username;
+    return uid.slice(-6);
+  };
   return (
-    <div onMouseDown={onPointerDown} onTouchStart={onPointerDown} onClick={onClickContainer} style={{position:"fixed", left:pos.x, top:pos.y, zIndex:1000, width:W, height:H, borderRadius:16, overflow:"hidden", background:"linear-gradient(135deg,#1c1511,#0f1d1a)", border:"1px solid rgba(255,255,255,0.15)", boxShadow:"0 10px 30px rgba(0,0,0,0.5)", display:"flex", flexDirection:"column", cursor:"grab", touchAction:"none", transition: snapping ? "left 0.24s ease, top 0.24s ease" : undefined, userSelect:"none"}}>
-      <div style={{height:14, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(255,255,255,0.06)", flexShrink:0}}><span style={{width:22,height:3,borderRadius:99, background:"rgba(255,255,255,0.35)"}}/></div>
-      <div style={{flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:6, padding:8}}>
-        <div style={{width:36, height:36, borderRadius:"50%", background:"rgba(99,102,241,0.3)", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontSize:11, fontWeight:600}}>{count}</div>
-        <div style={{flex:1, minWidth:0}}><div style={{color:"#fff", fontSize:11, fontWeight:600, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}>{remoteName}</div><div style={{color:isConnected?"#4ade80":"rgba(255,255,255,0.6)", fontSize:9, display:"flex", alignItems:"center", gap:4}}><span style={{width:6,height:6,borderRadius:"50%", background:isConnected?"#22c55e":"#f59e0b", display:"inline-block"}}/> {isConnected? `${fmt(seconds)} · ${count} ppl` : "Calling…"}</div></div>
-        {isMuted && <span style={{background:"rgba(239,68,68,0.9)", color:"#fff", fontSize:8, padding:"2px 4px", borderRadius:6}}>🔇</span>}
+    <div onMouseDown={onPointerDown} onTouchStart={onPointerDown} onClick={onClickContainer} style={{position:"fixed", left:pos.x, top:pos.y, zIndex:1000, width:W, height:H, borderRadius:16, overflow:"hidden", background:"linear-gradient(135deg,#1c1511,#0f1d1a)", border:"1px solid rgba(255,255,255,0.15)", boxShadow:"0 16px 40px rgba(0,0,0,0.55)", display:"flex", flexDirection:"column", cursor:"grab", touchAction:"none", transition: snapping ? "left 0.24s ease, top 0.24s ease" : undefined, userSelect:"none"}}>
+      <div style={{height:18, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 8px", background:"rgba(255,255,255,0.07)", flexShrink:0}}>
+        <span style={{color:"#fff", fontSize:11, fontWeight:600, display:"flex", alignItems:"center", gap:6}}><span style={{width:8,height:8,borderRadius:"50%", background:isConnected?"#22c55e":"#f59e0b", display:"inline-block"}}/>{remoteName} · {count} ppl</span>
+        <span style={{color:"rgba(255,255,255,0.7)", fontSize:10}}>{isConnected? fmt(seconds):"Calling…"}</span>
       </div>
-      <div style={{display:"flex", gap:4, padding:4, background:"rgba(0,0,0,0.4)", justifyContent:"space-between"}}>
-        <button onClick={(e)=>{e.stopPropagation(); onMaximize();}} style={{flex:1, background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.1)", color:"#fff", fontSize:10, borderRadius:8, padding:"4px"}}>↗ Restore</button>
-        <button onClick={(e)=>{e.stopPropagation(); onEnd();}} style={{flex:1, background:"#ef4444", border:"none", color:"#fff", fontSize:10, borderRadius:8, padding:"4px"}}>✕ End</button>
+      {/* live mini grid */}
+      <div style={{flex:1, display:"grid", gap:4, padding:6, background:"#0a0a0a", gridTemplateColumns: count<=2 ? "1fr 1fr" : "1fr 1fr", gridAutoRows:"1fr"}}>
+        <div style={{position:"relative", background:"#111", borderRadius:8, overflow:"hidden", border:"1px solid rgba(255,255,255,0.1)"}}>
+          <video ref={miniLocalRef} autoPlay muted playsInline style={{width:"100%", height:"100%", objectFit:"cover"}} />
+          <span style={{position:"absolute", bottom:4, left:4, background:"rgba(0,0,0,0.6)", color:"#fff", fontSize:9, padding:"1px 4px", borderRadius:4}}>You {isMuted?"🔇":""}</span>
+        </div>
+        {streams.slice(0,3).map(([pid, stream]:any)=>{
+          const name=getNameMini(pid);
+          const isAudioOnly = stream.getVideoTracks().length===0;
+          return (
+            <div key={pid} style={{position:"relative", background:"#111", borderRadius:8, overflow:"hidden", border:"1px solid rgba(255,255,255,0.1)"}}>
+              {isAudioOnly ? (
+                <div style={{width:"100%", height:"100%", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4, background:"linear-gradient(135deg,#1e1a2e,#0f1d1a)"}}>
+                  <div style={{width:28,height:28,borderRadius:"50%", background:"rgba(99,102,241,0.4)", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontSize:10, fontWeight:700}}>{name.slice(0,2).toUpperCase()}</div>
+                  <span style={{color:"#fff", fontSize:9, fontWeight:600}}>{name}</span>
+                  <audio autoPlay playsInline ref={(el:any)=>{ if(el && el.srcObject!==stream){ el.srcObject=stream; el.play().catch(()=>{}); }}} style={{display:"none"}} />
+                </div>
+              ) : (
+                <video autoPlay playsInline ref={(el:any)=>{ if(el && el.srcObject!==stream){ el.srcObject=stream; el.play().catch(()=>{}); }}} style={{width:"100%", height:"100%", objectFit:"cover"}} />
+              )}
+              <span style={{position:"absolute", bottom:4, left:4, background:"rgba(0,0,0,0.6)", color:"#fff", fontSize:9, padding:"1px 4px", borderRadius:4, maxWidth:"70%", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{name}</span>
+            </div>
+          );
+        })}
+        {count>4 && <div style={{display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(255,255,255,0.06)", color:"rgba(255,255,255,0.7)", fontSize:11, borderRadius:8}}>+{count-4} more</div>}
+      </div>
+      <div style={{display:"flex", gap:6, padding:6, background:"rgba(0,0,0,0.45)", justifyContent:"space-between"}}>
+        <button onClick={(e)=>{e.stopPropagation(); onMaximize();}} style={{flex:1, background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.12)", color:"#fff", fontSize:11, fontWeight:600, borderRadius:8, padding:"6px"}}>↗ Restore</button>
+        <button onClick={(e)=>{e.stopPropagation(); onEnd();}} style={{flex:1, background:"#ef4444", border:"none", color:"#fff", fontSize:11, fontWeight:600, borderRadius:8, padding:"6px"}}>✕ End</button>
       </div>
     </div>
   );

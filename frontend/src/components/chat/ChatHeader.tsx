@@ -241,24 +241,47 @@ export default function ChatHeader({ user, onBack, onSearch, onSelectMode, onClo
             </div>
             <div className="space-y-2 max-h-64 overflow-auto">
               <h4 className="text-indigo-400 font-semibold text-sm flex items-center gap-2"><Users size={16}/> Members</h4>
-              {(group.members||[]).map((m:any, i:number)=>{
+              {(() => {
+                const viewerIsAdmin = group.admins?.some((a:any)=> getMemberId(a)===currentUser?._id?.toString());
+                return (group.members||[]).map((m:any, i:number)=>{
                 const mid=getMemberId(m);
                 const name=getMemberName(m);
                 const avatar=getMemberAvatar(m);
                 const isAdmin=group.admins?.some((a:any)=> getMemberId(a)===mid);
                 const isOnline=isMemberOnline(m);
                 const isMe = currentUser?._id && mid === currentUser._id.toString();
-                return <div key={mid+i} onClick={()=>{
-                  if(isMe) return;
-                  // Open direct chat with member (WhatsApp-like)
-                  window.dispatchEvent(new CustomEvent("open-direct-chat", {detail: { _id: mid, username: name, avatar }}));
-                  setShowGroupInfo(false);
-                }} className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 cursor-pointer">
-                  <div className="relative"><img src={avatar} className="w-8 h-8 rounded-full object-cover border border-white/10" alt={name} onError={(e)=>{(e.target as HTMLImageElement).src=`https://ui-avatars.com/api/?name=${name}`}} />{isOnline && <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 border-2 border-[#121520] rounded-full"/>}</div>
-                  <span className="text-white text-sm flex-1 truncate">{name} {isMe && <span className="text-white/40 text-xs">(You)</span>}</span>
-                  {isAdmin && <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-600 text-white">Admin</span>}
+                return <div key={mid+i} className="flex items-center gap-2 p-2 rounded-xl hover:bg-white/5">
+                  <div className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onClick={()=>{
+                    if(isMe) return;
+                    window.dispatchEvent(new CustomEvent("open-direct-chat", {detail: { _id: mid, username: name, avatar }}));
+                    setShowGroupInfo(false);
+                  }}>
+                    <div className="relative shrink-0"><img src={avatar} className="w-8 h-8 rounded-full object-cover border border-white/10" alt={name} onError={(e)=>{(e.target as HTMLImageElement).src=`https://ui-avatars.com/api/?name=${name}`}} />{isOnline && <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 border-2 border-[#121520] rounded-full"/>}</div>
+                    <span className="text-white text-sm flex-1 truncate">{name} {isMe && <span className="text-white/40 text-xs">(You)</span>}</span>
+                    {isAdmin && <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-600 text-white">Admin</span>}
+                  </div>
+                  {viewerIsAdmin && !isMe && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      {!isAdmin ? (
+                        <button onClick={async()=>{
+                          try{ const { promoteToAdmin } = await import("../../apis/group.api"); await promoteToAdmin(group._id, mid); await fetchGroups(); }catch(e:any){ alert(e.response?.data?.msg||"Failed"); }
+                        }} className="text-[10px] px-2 py-1 rounded-full bg-white/10 hover:bg-indigo-600 text-white border border-white/10" title="Promote to admin">Make Admin</button>
+                      ) : (
+                        <button onClick={async()=>{
+                          if(group.admins?.length<=1){ alert("Need at least one admin"); return; }
+                          if(!confirm(`Remove admin from ${name}?`)) return;
+                          try{ const { demoteAdmin } = await import("../../apis/group.api"); await demoteAdmin(group._id, mid); await fetchGroups(); }catch(e:any){ alert(e.response?.data?.msg||"Failed"); }
+                        }} className="text-[10px] px-2 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/10" title="Remove admin">Remove Admin</button>
+                      )}
+                      <button onClick={async()=>{
+                        if(!confirm(`Remove ${name} from group?`)) return;
+                        try{ const { removeMember } = await import("../../apis/group.api"); await removeMember(group._id, mid); await fetchGroups(); }catch(e:any){ alert(e.response?.data?.msg||"Failed"); }
+                      }} className="w-6 h-6 rounded-full bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/20 flex items-center justify-center text-rose-300 text-xs" title="Remove member">×</button>
+                    </div>
+                  )}
                 </div>
-              })}
+                });
+              })()}
             </div>
             <button onClick={async()=>{
               if(!confirm(`Leave group "${group.name}"? You will no longer receive messages.`)) return;

@@ -46,10 +46,11 @@ export const GroupProvider:React.FC<{children:React.ReactNode}> = ({children})=>
       cur.forEach((g:any)=> socket.emit("join-group",{groupId:g._id}));
     };
     socket.on("group-message", onMsg); socket.on("group-member-added", onAdd); socket.on("group-member-removed", onRemove); socket.on("group-settings-updated", onSettingsUpdate);
+    socket.on("group-admin-promoted", onAdd); socket.on("group-admin-demoted", onAdd);
     socket.on("connect", onConnect);
     // also handle reconnect
     socket.io.on("reconnect", onConnect as any);
-    return()=>{ socket.off("group-message", onMsg); socket.off("group-member-added", onAdd); socket.off("group-member-removed", onRemove); socket.off("group-settings-updated", onSettingsUpdate); socket.off("connect", onConnect); socket.io.off("reconnect", onConnect as any); };
+    return()=>{ socket.off("group-message", onMsg); socket.off("group-member-added", onAdd); socket.off("group-member-removed", onRemove); socket.off("group-settings-updated", onSettingsUpdate); socket.off("group-admin-promoted", onAdd); socket.off("group-admin-demoted", onAdd); socket.off("connect", onConnect); socket.io.off("reconnect", onConnect as any); };
   },[]);
   const createGroup=async(d:FormData)=>{ const r=await api.createGroup(d); setGroups(p=> [r.data.group, ...p]); return r.data.group; };
   const selectGroup=(id:string)=>{ const g=groups.find(x=> x._id===id); setCurrentGroup(g||null); };

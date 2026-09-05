@@ -36,6 +36,7 @@ export const CallProvider = ({ children }: any) => {
   const remoteStreamRef = useRef<MediaStream | null>(null);
   const peerRef         = useRef<RTCPeerConnection | null>(null);
   const connectedAtRef  = useRef<number | null>(null);
+  const [groupCallMembers, setGroupCallMembers] = useState<Map<string, {username:string, avatar:string|null}>>(new Map());
 
   const callStatusRef  = useRef<CallStatus>("idle");
   const currentCallIdRef = useRef<string | null>(null);
@@ -48,6 +49,9 @@ export const CallProvider = ({ children }: any) => {
   useEffect(() => { callStatusRef.current = callStatus; }, [callStatus]);
   useEffect(() => { currentCallIdRef.current = currentCallId; }, [currentCallId]);
   useEffect(() => { callUserRef.current = callUser; }, [callUser]);
+  useEffect(() => {
+    if (callStatus === "idle") setGroupCallMembers(new Map());
+  }, [callStatus]);
 
   /* ── audio control ───────────────────────────────────────────────────── */
   const stopAllAudio = () => {
@@ -164,12 +168,19 @@ export const CallProvider = ({ children }: any) => {
     socket.on("error",          onError);
     socket.on("call-ended",     onEnded);
     // Group call listeners (preserve movable window)
-    const onIncomingGroup = ({ groupId, callId, from, type, groupName }: any)=>{
+    const onIncomingGroup = ({ groupId, callId, from, type, groupName, groupAvatar, initiator, members }: any)=>{
       if(callStatusRef.current === "connected") return;
-      setIncomingCall({ from, groupId, callId, type, isGroup:true, groupName });
+      setIncomingCall({ from, groupId, callId, type, isGroup:true, groupName, groupAvatar, initiator, members });
       if(callId) setCurrentCallId(callId);
       // Use group as callUser for UI
-      setCallUser({ _id: groupId, username: groupName || "Group", isGroup:true, groupId });
+      setCallUser({ _id: groupId, username: groupName || "Group", avatar: groupAvatar || null, isGroup:true, groupId });
+      // store members mapping for username display
+      if (members && Array.isArray(members)) {
+        const m = new Map<string, {username:string, avatar:string|null}>();
+        for (const mem of members) m.set(String(mem.id), { username: mem.username, avatar: mem.avatar || null });
+        if (initiator) m.set(String(initiator.id), { username: initiator.username, avatar: initiator.avatar || null });
+        setGroupCallMembers(m);
+      }
       setCallType(type||"audio");
       setCallStatus("ringing");
       playRingtone();
@@ -182,15 +193,46 @@ export const CallProvider = ({ children }: any) => {
       setCallStatus("idle"); setIncomingCall(null); setCallUser(null); setActiveCallUserId(null); setCurrentCallId(null); setIsMinimized(false);
       connectedAtRef.current=null;
     };
-    const onGroupParticipantLeft = ({ userId, groupId }: any)=>{
-      // participant left: keep call alive for remaining, useCall will clean peer; if only one left we stay connected
+    const onGroupParticipantLeft = ({ userId, userInfo, groupId }: any)=>{
       console.log("group participant left", userId, groupId);
+      if (userInfo) {
+        setGroupCallMembers(prev => {
+          const n = new Map(prev);
+          n.delete(String(userId));
+          return n;
+        });
+      }
     };
-    const onGroupStarted = ({ callId }: any)=>{ if(callId) setCurrentCallId(callId); };
+    const onGroupParticipantJoined = ({ userId, userInfo }: any)=>{
+      if (userInfo) {
+        setGroupCallMembers(prev => {
+          const n = new Map(prev);
+          n.set(String(userId), { username: userInfo.username, avatar: userInfo.avatar || null });
+          return n;
+        });
+      }
+    };
+    const onGroupMembers = ({ members }: any)=>{
+      if (members && Array.isArray(members)) {
+        const m = new Map<string, {username:string, avatar:string|null}>();
+        for (const mem of members) m.set(String(mem.id), { username: mem.username, avatar: mem.avatar || null });
+        setGroupCallMembers(m);
+      }
+    };
+    const onGroupStarted = ({ callId, members }: any)=>{
+      if(callId) setCurrentCallId(callId);
+      if (members && Array.isArray(members)) {
+        const m = new Map<string, {username:string, avatar:string|null}>();
+        for (const mem of members) m.set(String(mem.id), { username: mem.username, avatar: mem.avatar || null });
+        setGroupCallMembers(m);
+      }
+    };
     socket.on("incoming-group-call", onIncomingGroup);
     socket.on("group-call-ended", onGroupEnded);
     socket.on("group-call-started", onGroupStarted);
+    socket.on("group-call-participant-joined", onGroupParticipantJoined);
     socket.on("group-call-participant-left", onGroupParticipantLeft);
+    socket.on("group-call-members", onGroupMembers);
 
     return () => {
       socket.off("call-initiated", onInitiated);
@@ -203,8 +245,9 @@ export const CallProvider = ({ children }: any) => {
       socket.off("incoming-group-call", onIncomingGroup);
       socket.off("group-call-ended", onGroupEnded);
       socket.off("group-call-started", onGroupStarted);
-      socket.off("group-call-participant-joined");
+      socket.off("group-call-participant-joined", onGroupParticipantJoined);
       socket.off("group-call-participant-left", onGroupParticipantLeft);
+      socket.off("group-call-members", onGroupMembers);
     };
   }, []);
 
@@ -303,6 +346,7 @@ export const CallProvider = ({ children }: any) => {
       callType,        setCallType,
       remoteVideoRef,  localVideoRef, remoteAudioRef,
       localStreamRef, remoteStreamRef, peerRef, connectedAtRef,
+      groupCallMembers, setGroupCallMembers,
       attachStreams, cleanupStreams,
       missedCallMsg,
       isMinimized, setIsMinimized,

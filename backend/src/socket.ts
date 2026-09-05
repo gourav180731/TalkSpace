@@ -276,19 +276,23 @@ export function initSocket(io: Server) {
     socket.on("group-call-start", async ({ groupId, type }) => {
       try {
         const { default: GroupChat } = await import("./models/groupChat.model");
-        const g: any = await GroupChat.findOne({ _id: groupId, members: userId });
+        const g: any = await GroupChat.findOne({ _id: groupId, members: userId }).populate("members","username avatar");
         if (!g) return;
         if (g.members.length > 8) { socket.emit("error", "Group call limited to 8 participants"); return; }
         const callId = `${groupId}_${userId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
         ongoingCalls.set(userId, { partnerId: groupId, callId, caller: userId, receiver: groupId, startTime: new Date(), answeredAt: new Date(), callType: type || "audio", groupId } as any);
         socket.join(groupId);
+        // build members info for username mapping
+        const membersInfo = g.members.map((m:any)=> ({ id: m._id.toString(), username: m.username, avatar: m.avatar }));
+        const initiator = membersInfo.find((m:any)=> m.id===userId) || { id: userId, username: "User", avatar: null };
+        const payload = { groupId, callId, from: userId, type: type || "audio", groupName: g.name, groupAvatar: g.avatar, initiator, members: membersInfo };
         for (const mem of g.members) {
-          const mid = mem.toString();
+          const mid = (mem as any)._id.toString();
           if (mid === userId) continue;
-          emitToUser(io, mid, "incoming-group-call", { groupId, callId, from: userId, type: type || "audio", groupName: g.name, groupAvatar: g.avatar });
+          emitToUser(io, mid, "incoming-group-call", payload);
         }
-        socket.to(groupId).emit("incoming-group-call", { groupId, callId, from: userId, type: type || "audio", groupName: g.name, groupAvatar: g.avatar });
-        socket.emit("group-call-started", { groupId, callId });
+        socket.to(groupId).emit("incoming-group-call", payload);
+        socket.emit("group-call-started", { groupId, callId, members: membersInfo });
       } catch (e) { console.error("group-call-start error", e); }
     });
     socket.on("group-call-accept", async ({ groupId, callId }) => {
@@ -298,13 +302,19 @@ export function initSocket(io: Server) {
           ongoingCalls.set(userId, { partnerId: groupId, callId: callId || `${groupId}_${userId}_${Date.now()}`, caller: info?.caller || userId, receiver: groupId, startTime: new Date(), answeredAt: new Date(), callType: info?.callType || "audio", groupId } as any);
         } else if (!info.answeredAt) info.answeredAt = new Date();
         socket.join(groupId);
-        socket.to(groupId).emit("group-call-participant-joined", { groupId, userId, callId: callId || info?.callId });
+        const { default: UserModel } = await import("./models/user.model");
+        const u:any = await UserModel.findById(userId).select("username avatar").lean();
+        const userInfo = { id: userId, username: u?.username || "User", avatar: u?.avatar || null };
+        socket.to(groupId).emit("group-call-participant-joined", { groupId, userId, userInfo, callId: callId || info?.callId });
         const { default: GroupChat } = await import("./models/groupChat.model");
-        const g: any = await GroupChat.findById(groupId);
+        const g: any = await GroupChat.findById(groupId).populate("members","username avatar");
         if (g) {
-          const existing = g.members.map((m: any) => m.toString()).filter((id: string) => id !== userId);
+          const existing = g.members.map((m: any) => m._id.toString()).filter((id: string) => id !== userId);
           const inCall = existing.filter((id: string) => ongoingCalls.has(id) && (ongoingCalls.get(id) as any)?.partnerId === groupId);
           if (inCall.length > 0) socket.emit("group-call-participants", { groupId, participants: inCall, callId });
+          // also send full members info for username mapping
+          const membersInfo = g.members.map((m:any)=> ({ id: m._id.toString(), username: m.username, avatar: m.avatar }));
+          socket.emit("group-call-members", { groupId, members: membersInfo });
         }
       } catch (e) { console.error("group-call-accept error", e); }
     });
@@ -328,15 +338,18 @@ export function initSocket(io: Server) {
         await logCall({ callId: cid, caller: userId, receiver: groupId, groupId, isGroupCall: true, callType: (info?.callType as any) || "audio", status: status as any, startTime: info?.startTime || new Date(), answeredAt: ans, endTime: new Date(), duration: dur });
         ongoingCalls.delete(userId);
         socket.leave(groupId);
+        const { default: UserModel2 } = await import("./models/user.model");
+        const lu:any = await UserModel2.findById(userId).select("username avatar").lean();
+        const leftUserInfo = { id: userId, username: lu?.username || "User", avatar: lu?.avatar || null };
         // notify remaining participants that this user left, but keep their call alive
-        socket.to(groupId).emit("group-call-participant-left", { groupId, userId, callId: cid });
+        socket.to(groupId).emit("group-call-participant-left", { groupId, userId, userInfo: leftUserInfo, callId: cid });
         const { default: GroupChat } = await import("./models/groupChat.model");
         const g: any = await GroupChat.findById(groupId);
         if (g) {
           for (const mem of g.members) {
             const mid = mem.toString();
             if (mid === userId) continue;
-            emitToUser(io, mid, "group-call-participant-left", { groupId, userId, callId: cid });
+            emitToUser(io, mid, "group-call-participant-left", { groupId, userId, userInfo: leftUserInfo, callId: cid });
           }
         }
         // check if no one remains in call, then optionally broadcast ended to group
