@@ -352,10 +352,25 @@ export function initSocket(io: Server) {
             emitToUser(io, mid, "group-call-participant-left", { groupId, userId, userInfo: leftUserInfo, callId: cid });
           }
         }
-        // check if no one remains in call, then optionally broadcast ended to group
+        // if only 0 or 1 remains, auto-end for the last participant (WhatsApp behavior)
         const remaining = g ? g.members.filter((m: any) => ongoingCalls.has(m.toString()) && (ongoingCalls.get(m.toString()) as any)?.partnerId === groupId) : [];
         if (remaining.length === 0) {
           io.to(groupId).emit("group-call-ended", { groupId, callId: cid });
+        } else if (remaining.length === 1) {
+          const lastId = remaining[0].toString();
+          emitToUser(io, lastId, "group-call-ended", { groupId, callId: cid, reason: "alone" });
+          io.to(groupId).emit("group-call-ended", { groupId, callId: cid, reason: "alone" });
+          // also clean up last participant's call record after short grace (let frontend auto-leave)
+          // keep ongoingCalls for last user so frontend can show alone then auto cut; backend will clean on their leave or after 5s
+          setTimeout(async()=>{
+            if(ongoingCalls.has(lastId) && (ongoingCalls.get(lastId) as any)?.partnerId===groupId){
+              const lastInfo:any = ongoingCalls.get(lastId);
+              if(lastInfo){
+                await logCall({ callId: lastInfo.callId, caller: lastId, receiver: groupId, groupId, isGroupCall:true, callType: lastInfo.callType as any, status:"completed" as any, startTime: lastInfo.startTime, answeredAt: lastInfo.answeredAt, endTime:new Date(), duration: Math.max(0, Math.floor((Date.now()- (lastInfo.answeredAt||lastInfo.startTime).getTime())/1000))});
+              }
+              ongoingCalls.delete(lastId);
+            }
+          }, 3000);
         }
       } catch {}
     });
