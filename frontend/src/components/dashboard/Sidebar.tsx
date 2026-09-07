@@ -268,6 +268,7 @@ export default function Sidebar({
                   isMuted={mutedIds.has(chat.user._id)}
                   isPinned={false}
                   onArchived={(id:string)=> { const ns=new Set(archivedIds); ns.add(id); setArchivedIds(ns); }}
+                  onDeleted={(id:string)=> { const ns=new Set(deletedIds); ns.add(id); setDeletedIds(ns); }}
                   onClick={() => {
                     if(selectMode){
                       const ns=new Set(selectedChatIds);
