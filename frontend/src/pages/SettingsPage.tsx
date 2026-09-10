@@ -7,7 +7,7 @@ import { ProfileView } from "./profile/ProfileView";
 import AppNavbar from "../components/layout/AppNavbar";
 import MobileBottomNav from "../components/layout/MobileBottomNav";
 import { useScrollDirection } from "../utils/useScrollDirection";
-import { User, Lock, MessageCircle, Palette, Bell, Database, Languages, HelpCircle, ChevronRight, UserCircle } from "lucide-react";
+import { User, Lock, MessageCircle, Palette, Bell, Database, Languages, HelpCircle, ChevronRight, UserCircle, Users } from "lucide-react";
 
 const TABS = [
   { id:"account", label:"Account", desc:"Security notifications, change number", icon: UserCircle },
@@ -18,6 +18,7 @@ const TABS = [
   { id:"storage", label:"Storage and data", desc:"Network usage, auto-download", icon: Database },
   { id:"language", label:"App language", desc:"English (device's language)", icon: Languages },
   { id:"help", label:"Help and feedback", desc:"Help center, contact us, privacy policy", icon: HelpCircle },
+  { id:"founders", label:"Founders", desc:"Meet the creators of TalkSpace", icon: Users },
 ];
 
 export default function SettingsPage(){
@@ -205,6 +206,41 @@ export default function SettingsPage(){
         <textarea value={helpMsg} onChange={e=>setHelpMsg(e.target.value)} placeholder="Describe your issue or feedback..." rows={4} className="w-full bg-[#0b0d12] border border-white/10 rounded-xl px-3 py-2 text-white placeholder:text-white/40 text-sm" />
         <button onClick={handleHelpSubmit} disabled={helpSending} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-white/10 disabled:text-white/30 text-white rounded-full text-sm">{helpSending ? "Sending..." : "Submit Feedback"}</button>
         <p className="text-xs text-white/40">Feedback is submitted to backend and persists.</p>
+      </div>;
+    }
+    if(tab==="founders"){
+      return <div className="space-y-4 bg-white/[0.04] border border-white/10 rounded-2xl p-4 md:p-6">
+        <h3 className="font-semibold text-white flex items-center gap-2"><Users size={18}/> Founders</h3>
+        <p className="text-sm text-white/60">Meet the creators behind TalkSpace — visible to everyone on mobile and desktop.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="flex flex-col items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/10">
+            <img src="/founder-gourav.jpeg" onError={(e)=>{(e.target as HTMLImageElement).src="/founder-gourav.svg"}} alt="Gourav" className="w-24 h-24 rounded-full object-cover border-2 border-indigo-500/30" />
+            <div className="text-center">
+              <p className="text-white font-semibold">Gourav</p>
+              <p className="text-white/60 text-xs">Co-Founder & Lead Developer</p>
+              <p className="text-white/40 text-xs mt-1">Building TalkSpace with passion for real conversations.</p>
+            </div>
+            <div className="flex gap-2">
+              <a href="https://github.com/gourav180731" target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs border border-white/10">GitHub</a>
+              <a href="mailto:mishrajigk31@gmail.com" className="px-3 py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs">Contact</a>
+            </div>
+          </div>
+          <div className="flex flex-col items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/10">
+            <img src="/founder-anand.jpeg" onError={(e)=>{(e.target as HTMLImageElement).src="/founder-anand.svg"}} alt="Anand" className="w-24 h-24 rounded-full object-cover border-2 border-indigo-500/30" />
+            <div className="text-center">
+              <p className="text-white font-semibold">Anand</p>
+              <p className="text-white/60 text-xs">Co-Founder & Designer</p>
+              <p className="text-white/40 text-xs mt-1">Crafting delightful user experiences.</p>
+            </div>
+            <div className="flex gap-2">
+              <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs border border-white/10">GitHub</a>
+              <a href="mailto:support@talkspace.app" className="px-3 py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs">Contact</a>
+            </div>
+          </div>
+        </div>
+        <div className="p-3 rounded-xl bg-indigo-600/10 border border-indigo-500/20">
+          <p className="text-xs text-indigo-300 text-center">TalkSpace is open source and built for everyone. Thank you for being part of our journey!</p>
+        </div>
       </div>;
     }
     return <div className="p-6 text-white/60 text-sm">Loading…</div>;
