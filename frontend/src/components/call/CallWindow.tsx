@@ -217,6 +217,7 @@ export default function CallWindow() {
   const [seconds,        setSeconds]        = useState(0);
   const [isMuted,        setIsMuted]        = useState(false);
   const [isSpeakerMuted, setIsSpeakerMuted] = useState(false);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(true);
 
   const isVideo     = callSocket.callType === "video";
   const isActive    = callSocket.callStatus === "calling" || callSocket.callStatus === "connected";
@@ -254,6 +255,7 @@ export default function CallWindow() {
       setSeconds(0);
       setIsMuted(false);
       setIsSpeakerMuted(false);
+      setIsVideoEnabled(true);
     }
   }, [callSocket.callStatus]);
 
@@ -302,6 +304,10 @@ export default function CallWindow() {
 
   const handleMute    = () => setIsMuted(call.toggleMute());
   const handleSpeaker = () => setIsSpeakerMuted(call.toggleSpeaker());
+  const handleToggleVideo = () => {
+    const enabled = (call as any).toggleVideo?.();
+    if (typeof enabled === "boolean") setIsVideoEnabled(enabled);
+  };
   const handleEnd     = () => { callSocket.clearMissedTimer(); call.endCall(); };
 
   const handleAccept = async () => {
@@ -424,8 +430,10 @@ export default function CallWindow() {
                 fmt={fmt}
                 isMuted={isMuted}
                 isSpeakerMuted={isSpeakerMuted}
+                isVideoEnabled={isVideoEnabled}
                 onMute={handleMute}
                 onSpeaker={handleSpeaker}
+                onToggleVideo={handleToggleVideo}
                 onEnd={handleEnd}
                 onMinimize={()=> callSocket.minimizeCall()}
                 onFlip={() => call.switchCamera()}
@@ -440,8 +448,10 @@ export default function CallWindow() {
               fmt={fmt}
               isMuted={isMuted}
               isSpeakerMuted={isSpeakerMuted}
+              isVideoEnabled={isVideoEnabled}
               onMute={handleMute}
               onSpeaker={handleSpeaker}
+              onToggleVideo={handleToggleVideo}
               onEnd={handleEnd}
               onMinimize={()=> callSocket.minimizeCall()}
               onFlip={() => call.switchCamera()}
@@ -621,8 +631,8 @@ function MinimizedCallBubble({isVideo,isConnected,remoteName,remoteAvatar,second
 
 function ActiveCallWindow({
   isVideo, isConnected, remoteName, remoteAvatar,
-  seconds, fmt, isMuted, isSpeakerMuted,
-  onMute, onSpeaker, onEnd, onMinimize, onFlip,
+  seconds, fmt, isMuted, isSpeakerMuted, isVideoEnabled,
+  onMute, onSpeaker, onToggleVideo, onEnd, onMinimize, onFlip,
   remoteVideoRef, localVideoRef,
 }: any) {
   return (
@@ -782,8 +792,10 @@ function ActiveCallWindow({
         isVideo={isVideo}
         isMuted={isMuted}
         isSpeakerMuted={isSpeakerMuted}
+        isVideoEnabled={isVideoEnabled}
         onMute={onMute}
         onSpeaker={onSpeaker}
+        onToggleVideo={onToggleVideo}
         onEnd={onEnd}
         onFlip={onFlip}
       />
@@ -821,7 +833,7 @@ function TitleBar({ isConnected, isVideo }: any) {
 }
 
 /* ── Bottom control bar ── */
-function ControlBar({ isVideo, isMuted, isSpeakerMuted, onMute, onSpeaker, onEnd, onFlip }: any) {
+function ControlBar({ isVideo, isMuted, isSpeakerMuted, isVideoEnabled, onMute, onSpeaker, onToggleVideo, onEnd, onFlip }: any) {
   return (
     <div
       className="cw-glass"
@@ -849,9 +861,12 @@ function ControlBar({ isVideo, isMuted, isSpeakerMuted, onMute, onSpeaker, onEnd
         <span className="cw-ctrl-label">End</span>
       </div>
 
-      {isVideo
-        ? <CtrlBtn label="Flip" on={false} onClick={onFlip} icon={<FlipIcon />} />
-        : <div style={{ width: 50, height: 50, visibility: "hidden" }} />}
+      {isVideo ? (
+        <>
+          <CtrlBtn label={isVideoEnabled===false ? "Cam On" : "Cam Off"} on={isVideoEnabled===false} onClick={onToggleVideo} icon={<VideoIcon off={isVideoEnabled===false} />} />
+          <CtrlBtn label="Flip" on={false} onClick={onFlip} icon={<FlipIcon />} />
+        </>
+      ) : <div style={{ width: 50, height: 50, visibility: "hidden" }} />}
 
       {/* Mirror spacer so End stays centred */}
       <div style={{ width: 50, height: 50, visibility: "hidden" }} />
@@ -993,7 +1008,7 @@ function SpeakerIcon({ muted }: { muted: boolean }) {
     </svg>
   );
 }
-function GroupActiveCallWindow({isVideo,isConnected,remoteName,seconds,fmt,isMuted,isSpeakerMuted,onMute,onSpeaker,onEnd,onMinimize,onFlip}:any){
+function GroupActiveCallWindow({isVideo,isConnected,remoteName,seconds,fmt,isMuted,isSpeakerMuted,isVideoEnabled,onMute,onSpeaker,onToggleVideo,onEnd,onMinimize,onFlip}:any){
   const { localVideoRef, localStreamRef, groupStreamsRef, groupTick, callUser, groupCallMembers, activeGroupParticipants } = useGlobalCall() as any;
   const { user: me } = useAuth();
   const { groups } = useGroup();
@@ -1111,15 +1126,20 @@ function GroupActiveCallWindow({isVideo,isConnected,remoteName,seconds,fmt,isMut
       }}>
         {/* Local tile */}
         <div style={{position:"relative", background:"#0a0a0a", borderRadius:12, overflow:"hidden", border:"2px solid rgba(255,255,255,0.12)"}}>
-          {isVideo ? (
+          {isVideo && isVideoEnabled!==false ? (
             <video ref={localVideoRef} autoPlay muted playsInline style={{width:"100%", height:"100%", objectFit:"contain", background:"#000"}} />
+          ) : isVideo && isVideoEnabled===false ? (
+            <div style={{width:"100%", height:"100%", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:"linear-gradient(135deg,#1c1511,#0f1d1a)", gap:8}}>
+              {me?.avatar ? <img src={me.avatar} className="w-16 h-16 rounded-full object-cover border border-white/20" alt={me?.username} /> : <div style={{width:64, height:64, borderRadius:"50%", background:"rgba(255,255,255,0.1)", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff"}}>{(me?.username||"You").slice(0,2).toUpperCase()}</div>}
+              <span style={{color:"rgba(255,255,255,0.6)", fontSize:11}}>Camera off</span>
+            </div>
           ) : (
             <div style={{width:"100%", height:"100%", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:"linear-gradient(135deg,#1c1511,#0f1d1a)", gap:8}}>
               {me?.avatar ? <img src={me.avatar} className="w-16 h-16 rounded-full object-cover border border-white/20" alt={me?.username} /> : <div style={{width:64, height:64, borderRadius:"50%", background:"rgba(255,255,255,0.1)", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff"}}>{(me?.username||"You").slice(0,2).toUpperCase()}</div>}
               <span style={{color:"#fff", fontSize:12, fontWeight:600}}>{me?.username||"You"}</span>
             </div>
           )}
-          <span style={{position:"absolute", bottom:6, left:6, background:"rgba(0,0,0,0.7)", color:"#fff", fontSize:11, fontWeight:600, padding:"3px 8px", borderRadius:8}}>{me?.username||"You"} {isMuted?"🔇":""}</span>
+          <span style={{position:"absolute", bottom:6, left:6, background:"rgba(0,0,0,0.7)", color:"#fff", fontSize:11, fontWeight:600, padding:"3px 8px", borderRadius:8}}>{me?.username||"You"} {isMuted?"🔇":""} {isVideoEnabled===false?"📷 off":""}</span>
         </div>
         {/* Remote tiles – authoritative: one tile per active participant (stream or placeholder) */}
         {effectiveRemoteIds.map((pid:string)=>{
@@ -1156,7 +1176,7 @@ function GroupActiveCallWindow({isVideo,isConnected,remoteName,seconds,fmt,isMut
           <div style={{display:"flex", alignItems:"center", justifyContent:"center", color:"rgba(255,255,255,0.5)", fontSize:12, minHeight:120}}>Waiting for others to join…</div>
         )}
       </div>
-      <ControlBar isVideo={isVideo} isMuted={isMuted} isSpeakerMuted={isSpeakerMuted} onMute={onMute} onSpeaker={onSpeaker} onEnd={onEnd} onFlip={onFlip} />
+      <ControlBar isVideo={isVideo} isMuted={isMuted} isSpeakerMuted={isSpeakerMuted} isVideoEnabled={isVideoEnabled} onMute={onMute} onSpeaker={onSpeaker} onToggleVideo={onToggleVideo} onEnd={onEnd} onFlip={onFlip} />
     </div>
   );
 }
@@ -1235,6 +1255,20 @@ function FlipIcon() {
       <path d="M23 7l-7 5 7 5V7z" />
       <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
       <path d="M7 3l-3 3 3 3M4 6h5" />
+    </svg>
+  );
+}
+function VideoIcon({ off }: { off: boolean }) {
+  return off ? (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 21, height: 21 }}>
+      <path d="M16 16L3 3m13 2v4l7-3v8l-7-3" />
+      <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  ) : (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 21, height: 21 }}>
+      <path d="M23 7l-7 5 7 5V7z" />
+      <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
     </svg>
   );
 }

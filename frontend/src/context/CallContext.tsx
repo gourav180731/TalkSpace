@@ -314,23 +314,47 @@ export const CallProvider = ({ children }: any) => {
   // Keep video elements in sync whenever streams or minimize toggles
   const attachStreams = () => {
     if (localStreamRef.current && localVideoRef.current) {
-      if (localVideoRef.current.srcObject !== localStreamRef.current) {
-        localVideoRef.current.srcObject = localStreamRef.current;
+      const local = localStreamRef.current;
+      if (localVideoRef.current.srcObject !== local) {
+        localVideoRef.current.srcObject = local;
         localVideoRef.current.muted = true;
+        (localVideoRef.current as any).playsInline = true;
+        localVideoRef.current.autoplay = true;
         localVideoRef.current.play().catch(()=>{});
+      } else if ((localVideoRef.current as any).paused && local.getVideoTracks().length>0) {
+        // track was added after srcObject set (same object) – re-trigger play
+        localVideoRef.current.play().catch(()=>{});
+      }
+      // dev diagnostics: ensure local tracks are live
+      if (import.meta.env.DEV && local) {
+        const vt = local.getVideoTracks()[0];
+        if (vt && vt.readyState !== "live") console.warn(`[GROUP-DIAG] local video track not live: ${vt.readyState}`);
       }
     }
     if (remoteStreamRef.current) {
-      if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== remoteStreamRef.current) {
-        remoteVideoRef.current.srcObject = remoteStreamRef.current;
+      const remote = remoteStreamRef.current;
+      if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== remote) {
+        remoteVideoRef.current.srcObject = remote;
         remoteVideoRef.current.muted = false;
         remoteVideoRef.current.playsInline = true;
         (remoteVideoRef.current as any).autoplay = true;
+        remoteVideoRef.current.play().catch((e:any)=>{
+          // fallback to muted autoplay on policy block
+          if (remoteVideoRef.current) {
+            remoteVideoRef.current.muted = true;
+            remoteVideoRef.current.play().catch(()=>{});
+            setTimeout(()=> { try{ if(remoteVideoRef.current) remoteVideoRef.current.muted = false; }catch{} }, 1500);
+            console.warn("[GROUP-DIAG] remote play blocked, retry muted", e?.name);
+          }
+        });
+      } else if (remoteVideoRef.current && (remoteVideoRef.current as any).paused) {
         remoteVideoRef.current.play().catch(()=>{});
       }
-      if (remoteAudioRef.current && remoteAudioRef.current.srcObject !== remoteStreamRef.current) {
-        remoteAudioRef.current.srcObject = remoteStreamRef.current;
+      if (remoteAudioRef.current && remoteAudioRef.current.srcObject !== remote) {
+        remoteAudioRef.current.srcObject = remote;
         remoteAudioRef.current.muted = false;
+        remoteAudioRef.current.play().catch(()=>{});
+      } else if (remoteAudioRef.current && (remoteAudioRef.current as any).paused) {
         remoteAudioRef.current.play().catch(()=>{});
       }
     }
@@ -345,7 +369,25 @@ export const CallProvider = ({ children }: any) => {
   }, [callStatus, isMinimized]);
 
   const minimizeCall = () => setIsMinimized(true);
-  const maximizeCall = () => setIsMinimized(false);
+  const maximizeCall = () => {
+    setIsMinimized(false);
+    // on restore, re-attach streams after DOM remount (critical fix for black video after minimize)
+    setTimeout(()=> attachStreams(), 50);
+    setTimeout(()=> attachStreams(), 300);
+    setTimeout(()=> attachStreams(), 800);
+  };
+
+  // Re-attach on page visibility restore (mobile app switch / tab switch)
+  useEffect(()=>{
+    const onVis = () => {
+      if (document.visibilityState === "visible" && callStatusRef.current !== "idle") {
+        setTimeout(()=> attachStreams(), 100);
+        setTimeout(()=> attachStreams(), 500);
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return ()=> document.removeEventListener("visibilitychange", onVis);
+  },[]);
 
   // Browser back: minimize instead of ending, but allow navigation
   useEffect(()=>{

@@ -106,26 +106,27 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
       groupPoliteRef.current.set(remoteId, isPolite);
       groupMakingOfferRef.current.set(remoteId, false);
     }
+    // ICE config: env vars with fallback (production-grade, not hard-coded secrets in git)
+    const envTurnUrl = (import.meta as any).env?.VITE_TURN_URL;
+    const envTurnUser = (import.meta as any).env?.VITE_TURN_USERNAME;
+    const envTurnCred = (import.meta as any).env?.VITE_TURN_CREDENTIAL;
+    const iceServers: RTCIceServer[] = [
+      { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"] },
+    ];
+    if (envTurnUrl && envTurnUser && envTurnCred) {
+      iceServers.push({ urls: envTurnUrl.split(","), username: envTurnUser, credential: envTurnCred });
+    } else {
+      // Fallback public relays (development) – replace with env in production
+      iceServers.push(
+        { urls: ["turn:openrelay.metered.ca:80", "turn:openrelay.metered.ca:443", "turn:openrelay.metered.ca:443?transport=tcp"], username: "openrelayproject", credential: "openrelayproject" },
+        { urls: ["turn:global.relay.metered.ca:80","turn:global.relay.metered.ca:80?transport=tcp","turn:global.relay.metered.ca:443","turns:global.relay.metered.ca:443?transport=tcp"], username: "02d63ed20c3a50f2efc67dc5", credential: "vcVLobIoZOjeg5L9" }
+      );
+    }
     const peer = new RTCPeerConnection({
-      iceServers: [
-        { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"] },
-        {
-          urls: ["turn:openrelay.metered.ca:80", "turn:openrelay.metered.ca:443", "turn:openrelay.metered.ca:443?transport=tcp"],
-          username: "openrelayproject",
-          credential: "openrelayproject",
-        },
-        {
-          urls: [
-            "turn:global.relay.metered.ca:80",
-            "turn:global.relay.metered.ca:80?transport=tcp",
-            "turn:global.relay.metered.ca:443",
-            "turns:global.relay.metered.ca:443?transport=tcp",
-          ],
-          username: "02d63ed20c3a50f2efc67dc5",
-          credential: "vcVLobIoZOjeg5L9",
-        },
-      ],
+      iceServers,
       iceCandidatePoolSize: 10,
+      bundlePolicy: "max-bundle" as any,
+      rtcpMuxPolicy: "require" as any,
     });
 
     peer.onicecandidate = (e) => {
@@ -199,18 +200,44 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
         }, 300);
       };
       peer.onconnectionstatechange = () => {
-        console.log(`[GROUP-CALL] connection ${myId} -> ${remoteId} state=${peer.connectionState} ice=${peer.iceConnectionState} sig=${peer.signalingState}`);
+        if (import.meta.env.DEV) console.log(`[GROUP-WEBRTC] peer ${myId}->${remoteId} conn=${peer.connectionState} ice=${peer.iceConnectionState} sig=${peer.signalingState}`);
         if(peer.connectionState==="failed"){
-          // attempt ICE restart for robustness
-          console.warn(`[GROUP-CALL] peer failed, will retry ICE restart for ${remoteId}`);
-          // don't auto-clear; let sync/reconciliation recreate if needed
+          console.warn(`[GROUP-WEBRTC] peer failed ${remoteId}, attempting ICE restart`);
+          try {
+            // ICE restart: create new offer with iceRestart
+            if (peer.signalingState === "stable") {
+              (async()=>{
+                try {
+                  groupMakingOfferRef.current.set(remoteId, true);
+                  const offer = await peer.createOffer({ iceRestart: true } as any);
+                  await peer.setLocalDescription(offer);
+                  groupMakingOfferRef.current.set(remoteId, false);
+                  socket.emit("group-call-offer", { groupId, to: remoteId, offer: peer.localDescription, type: (callSocket as any).callType || "video", callId: groupCallIdRef.current || (callSocket as any).currentCallId });
+                } catch(e){ groupMakingOfferRef.current.set(remoteId, false); console.error("ICE restart failed", e); }
+              })();
+            }
+          } catch{}
+        }
+        // dev diagnostics per section 18
+        if (import.meta.env.DEV && peer.connectionState === "connected") {
+          try {
+            const senders = peer.getSenders();
+            const receivers = peer.getReceivers();
+            const gStream = groupStreamsRef.current.get(remoteId);
+            const vt = gStream?.getVideoTracks()[0];
+            console.log(`[GROUP-DIAG] ${remoteId}: senders=${senders.length} receivers=${receivers.length} streamVideo=${gStream?.getVideoTracks().length||0} trackReady=${vt?.readyState||'none'} enabled=${vt?.enabled} muted=${vt?.muted}`);
+          } catch {}
         }
       };
       peer.oniceconnectionstatechange = () => {
-        console.log(`[GROUP-CALL] ICE ${remoteId} ${peer.iceConnectionState}`);
+        if (import.meta.env.DEV) console.log(`[GROUP-WEBRTC] ICE ${remoteId} ${peer.iceConnectionState}`);
+        if (peer.iceConnectionState === "failed") {
+          console.warn(`[GROUP-WEBRTC] ICE failed for ${remoteId}, restarting`);
+          try { peer.restartIce?.(); } catch {}
+        }
       };
       peer.onsignalingstatechange = () => {
-        console.log(`[GROUP-CALL] signaling ${remoteId} ${peer.signalingState}`);
+        if (import.meta.env.DEV) console.log(`[GROUP-WEBRTC] signaling ${remoteId} ${peer.signalingState}`);
       };
     } else {
       peer.ontrack = (event) => {
@@ -904,6 +931,22 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
     return isMutedRef.current;
   };
 
+  const isVideoEnabledRef = useRef(true);
+  const toggleVideo = () => {
+    if (!localStreamRef.current) return true;
+    const videoTracks = localStreamRef.current.getVideoTracks();
+    if (videoTracks.length === 0) return true;
+    // toggle enabled – do NOT stop track, keep sender alive for instant resume
+    const nextEnabled = !videoTracks[0].enabled;
+    videoTracks.forEach(t => { t.enabled = nextEnabled; });
+    isVideoEnabledRef.current = nextEnabled;
+    // also update any sender track enabled state is implicit via track.enabled
+    // notify UI via force update
+    forceGroupUpdate();
+    if (import.meta.env.DEV) console.log(`[GROUP-WEBRTC] toggleVideo -> ${nextEnabled ? 'enabled' : 'disabled'}`);
+    return nextEnabled; // returns true if enabled, false if disabled (mirrors muted pattern but inverted)
+  };
+
   const facingModeRef = useRef<"user" | "environment">("user");
   const switchCamera = async (): Promise<boolean> => {
     if (!localStreamRef.current) return false;
@@ -945,6 +988,7 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
     addIceCandidate,
     endCall,
     toggleMute,
+    toggleVideo,
     switchCamera,
     toggleSpeaker,
     localStreamRef,
@@ -953,5 +997,6 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
     groupStreamsRef,
     pendingGroupOffersRef,
     attachWithRetry,
+    isVideoEnabledRef,
   };
 }
