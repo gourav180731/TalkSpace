@@ -95,12 +95,10 @@ export default function ChatHeader({ user, onBack, onSearch, onSelectMode, onClo
             if (callSocket.callStatus !== "idle") return;
             if (isGroup) {
               try{
-                // Use group call with WebRTC mesh (up to 8)
+                // Use group call with WebRTC mesh (up to 8) – state fully handled inside startGroupCall
                 await (call as any).startGroupCall?.(group._id, group.members || [], "audio");
-                callSocket.setCallUser({ _id: group._id, username: group.name, avatar: group.avatar, isGroup:true });
-                callSocket.setCallType("audio");
-                callSocket.setCallStatus("calling");
-              }catch{
+              }catch(e){
+                console.error("group audio start failed", e);
                 const { socket } = await import("../../apis/socket");
                 socket.emit("group-call-start", { groupId: group._id, type: "audio" });
                 callSocket.setCallUser({ _id: group._id, username: group.name, avatar: group.avatar, isGroup:true });
@@ -123,10 +121,8 @@ export default function ChatHeader({ user, onBack, onSearch, onSelectMode, onClo
             if (isGroup) {
               try{
                 await (call as any).startGroupCall?.(group._id, group.members || [], "video");
-                callSocket.setCallUser({ _id: group._id, username: group.name, avatar: group.avatar, isGroup:true });
-                callSocket.setCallType("video");
-                callSocket.setCallStatus("calling");
-              }catch{
+              }catch(e){
+                console.error("group video start failed", e);
                 const { socket } = await import("../../apis/socket");
                 socket.emit("group-call-start", { groupId: group._id, type: "video" });
                 callSocket.setCallUser({ _id: group._id, username: group.name, avatar: group.avatar, isGroup:true });

@@ -37,6 +37,8 @@ export const CallProvider = ({ children }: any) => {
   const peerRef         = useRef<RTCPeerConnection | null>(null);
   const connectedAtRef  = useRef<number | null>(null);
   const [groupCallMembers, setGroupCallMembers] = useState<Map<string, {username:string, avatar:string|null}>>(new Map());
+  // Active participants in current group call (authoritative, synced with server)
+  const [activeGroupParticipants, setActiveGroupParticipants] = useState<Map<string, {username:string, avatar:string|null}>>(new Map());
 
   const callStatusRef  = useRef<CallStatus>("idle");
   const currentCallIdRef = useRef<string | null>(null);
@@ -50,7 +52,7 @@ export const CallProvider = ({ children }: any) => {
   useEffect(() => { currentCallIdRef.current = currentCallId; }, [currentCallId]);
   useEffect(() => { callUserRef.current = callUser; }, [callUser]);
   useEffect(() => {
-    if (callStatus === "idle") setGroupCallMembers(new Map());
+    if (callStatus === "idle") { setGroupCallMembers(new Map()); setActiveGroupParticipants(new Map()); }
   }, [callStatus]);
 
   /* ── audio control ───────────────────────────────────────────────────── */
@@ -186,26 +188,32 @@ export const CallProvider = ({ children }: any) => {
       playRingtone();
     };
     const onGroupEnded = ({ callId, groupId }: any)=>{
-      // group-call-ended now only emitted when no participants remain; end call for everyone
       if(groupId && callUserRef.current?.isGroup && String(callUserRef.current?._id) !== String(groupId) && String(callUserRef.current?.groupId) !== String(groupId)) return;
       if(currentCallIdRef.current && callId && currentCallIdRef.current!==callId) return;
       clearMissedTimer(); stopAllAudio();
       setCallStatus("idle"); setIncomingCall(null); setCallUser(null); setActiveCallUserId(null); setCurrentCallId(null); setIsMinimized(false);
+      setActiveGroupParticipants(new Map());
       connectedAtRef.current=null;
     };
-    const onGroupParticipantLeft = ({ userId, userInfo, groupId }: any)=>{
-      console.log("group participant left", userId, groupId);
+    const onGroupParticipantLeft = ({ userId, groupId }: any)=>{
+      console.log("[GROUP-CALL] participant left", userId, groupId);
+      setActiveGroupParticipants(prev => {
+        const n = new Map(prev);
+        n.delete(String(userId));
+        return n;
+      });
+      // keep groupCallMembers for name history but optional delete
+      // do not delete from groupCallMembers aggressively – keep for later rejoin
+    };
+    const onGroupParticipantJoined = ({ userId, userInfo, callId }: any)=>{
+      if(callId && !currentCallIdRef.current) setCurrentCallId(callId);
       if (userInfo) {
         setGroupCallMembers(prev => {
           const n = new Map(prev);
-          n.delete(String(userId));
+          n.set(String(userId), { username: userInfo.username, avatar: userInfo.avatar || null });
           return n;
         });
-      }
-    };
-    const onGroupParticipantJoined = ({ userId, userInfo }: any)=>{
-      if (userInfo) {
-        setGroupCallMembers(prev => {
+        setActiveGroupParticipants(prev => {
           const n = new Map(prev);
           n.set(String(userId), { username: userInfo.username, avatar: userInfo.avatar || null });
           return n;
@@ -226,6 +234,10 @@ export const CallProvider = ({ children }: any) => {
         for (const mem of members) m.set(String(mem.id), { username: mem.username, avatar: mem.avatar || null });
         setGroupCallMembers(m);
       }
+      // initialize active participants with self after start – sync will fill others
+      // request authoritative sync after short delay to populate active list
+      const gid = callUserRef.current?._id || callUserRef.current?.groupId;
+      if(gid) setTimeout(()=> socket.emit("group-call-sync-request", { groupId: gid }), 300);
     };
     socket.on("incoming-group-call", onIncomingGroup);
     socket.on("group-call-ended", onGroupEnded);
@@ -233,6 +245,36 @@ export const CallProvider = ({ children }: any) => {
     socket.on("group-call-participant-joined", onGroupParticipantJoined);
     socket.on("group-call-participant-left", onGroupParticipantLeft);
     socket.on("group-call-members", onGroupMembers);
+    const onGroupSync = ({ callId, participants, members }: any)=>{
+      if(callId && !currentCallIdRef.current) setCurrentCallId(callId);
+      if (participants && Array.isArray(participants)) {
+        const m = new Map<string, {username:string, avatar:string|null}>();
+        for (const p of participants) m.set(String(p.id), { username: p.username, avatar: p.avatar || null });
+        setActiveGroupParticipants(m);
+        // also merge into groupCallMembers for name resolution
+        setGroupCallMembers(prev=>{
+          const n = new Map(prev);
+          for(const p of participants) n.set(String(p.id), { username: p.username, avatar: p.avatar||null });
+          return n;
+        });
+      }
+      if (members && Array.isArray(members)) {
+        const m = new Map<string, {username:string, avatar:string|null}>();
+        for (const mem of members) m.set(String(mem.id), { username: mem.username, avatar: mem.avatar || null });
+        setGroupCallMembers(m);
+      }
+    };
+    const onGroupParticipants = ({ participants, callId }: any)=>{
+      if(callId) setCurrentCallId(callId);
+      if (participants && Array.isArray(participants)) {
+        // participants is array of ids; we need to fetch names from groupCallMembers or request sync
+        // trigger sync to get full info
+        const gid = callUserRef.current?._id || callUserRef.current?.groupId;
+        if(gid) socket.emit("group-call-sync-request", { groupId: gid });
+      }
+    };
+    socket.on("group-call-sync-response", onGroupSync);
+    socket.on("group-call-participants", onGroupParticipants);
 
     return () => {
       socket.off("call-initiated", onInitiated);
@@ -248,6 +290,8 @@ export const CallProvider = ({ children }: any) => {
       socket.off("group-call-participant-joined", onGroupParticipantJoined);
       socket.off("group-call-participant-left", onGroupParticipantLeft);
       socket.off("group-call-members", onGroupMembers);
+      socket.off("group-call-sync-response", onGroupSync);
+      socket.off("group-call-participants", onGroupParticipants);
     };
   }, []);
 
@@ -347,6 +391,8 @@ export const CallProvider = ({ children }: any) => {
       remoteVideoRef,  localVideoRef, remoteAudioRef,
       localStreamRef, remoteStreamRef, peerRef, connectedAtRef,
       groupCallMembers, setGroupCallMembers,
+      activeGroupParticipants, setActiveGroupParticipants,
+      callStatusRef, currentCallIdRef, callUserRef,
       attachStreams, cleanupStreams,
       missedCallMsg,
       isMinimized, setIsMinimized,

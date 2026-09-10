@@ -994,7 +994,7 @@ function SpeakerIcon({ muted }: { muted: boolean }) {
   );
 }
 function GroupActiveCallWindow({isVideo,isConnected,remoteName,seconds,fmt,isMuted,isSpeakerMuted,onMute,onSpeaker,onEnd,onMinimize,onFlip}:any){
-  const { localVideoRef, localStreamRef, groupStreamsRef, groupTick, callUser, groupCallMembers } = useGlobalCall() as any;
+  const { localVideoRef, localStreamRef, groupStreamsRef, groupTick, callUser, groupCallMembers, activeGroupParticipants } = useGlobalCall() as any;
   const { user: me } = useAuth();
   const { groups } = useGroup();
   let groupMembersMap: Map<string, any> = groupCallMembers || new Map();
@@ -1016,34 +1016,48 @@ function GroupActiveCallWindow({isVideo,isConnected,remoteName,seconds,fmt,isMut
     if(localStreamRef?.current && localVideoRef.current){
       localVideoRef.current.srcObject = localStreamRef.current;
       localVideoRef.current.muted=true;
+      localVideoRef.current.playsInline=true;
       localVideoRef.current.play().catch(()=>{});
     }
-  },[localVideoRef, isConnected]);
+  },[localVideoRef, isConnected, groupTick]);
+  // Authoritative participants – use activeGroupParticipants if available, else fallback to streams
+  const activeMap: Map<string, any> = (activeGroupParticipants && activeGroupParticipants.size>0) ? activeGroupParticipants : (()=>{ const m=new Map(); for(const [pid] of (groupStreamsRef ? Array.from(groupStreamsRef.current.entries()) as any : [])) { const info = groupMembersMap.get(pid) || {username: pid.slice(-6), avatar: null}; m.set(String(pid), info); } return m; })();
+  const myId = (me as any)?._id?.toString() || "";
+  // Filter active participants to exclude self for remote tiles, but keep count inclusive
+  const remoteActiveIds: string[] = Array.from(activeMap.keys()).filter((id: string)=> String(id)!==String(myId));
+  // If activeMap was fallback from streams, remoteActiveIds already correct
+  // If activeMap empty and we have streams fallback, ensure we still show streams
   const streams: Array<[string, MediaStream]> = groupStreamsRef ? Array.from(groupStreamsRef.current.entries()) as any : [];
-  const total = streams.length + 1;
+  const streamMap = new Map<string, MediaStream>(streams as any);
+  const total = activeMap.size>0 ? activeMap.size : (streams.length + 1);
+  const effectiveRemoteIds = remoteActiveIds.length>0 ? remoteActiveIds : streams.map(s=> String(s[0]));
   const getName = (uid:string)=>{
-    const m = groupMembersMap.get(uid);
+    const m = activeMap.get(String(uid)) || groupMembersMap.get(String(uid));
     if(m){
       if(typeof m==="string") return m.slice(-6);
-      return m.username || m.name || (m.firstName? `${m.firstName} ${m.lastName||""}`.trim():"") || uid.slice(-6);
+      return m.username || m.name || (m.firstName? `${m.firstName} ${m.lastName||""}`.trim():"") || String(uid).slice(-6);
     }
-    return uid.slice(-6);
+    const gm = groupMembersMap.get(String(uid));
+    if(gm) return typeof gm==="string"? String(uid).slice(-6) : gm.username || String(uid).slice(-6);
+    return String(uid).slice(-6);
   };
   const getAvatar = (uid:string)=>{
-    const m = groupMembersMap.get(uid);
+    const m = activeMap.get(String(uid)) || groupMembersMap.get(String(uid));
     if(m && typeof m!=="string") return m.avatar;
     return null;
   };
   const tileRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
   useEffect(()=>{
-    for(const [pid, stream] of streams){
-      const el = tileRefs.current.get(pid);
+    for(const pid of effectiveRemoteIds){
+      const stream = streamMap.get(String(pid));
+      if(!stream) continue;
+      const el = tileRefs.current.get(String(pid));
       if(el && el.srcObject !== stream){
         el.srcObject = stream;
         el.play().catch(()=>{});
       }
     }
-  },[streams.map(s=>s[0]).join(","), groupTick]);
+  },[effectiveRemoteIds.join(","), groupTick, streams.map(s=>s[0]).join(",")]);
   return (
     <div className={`cw-window cw-anim-scale-in${isVideo ? " is-video" : ""}`} style={{ position:"fixed", display:"flex", flexDirection:"column" }}>
       <TitleBar remoteName={remoteName} isConnected={isConnected} isVideo={isVideo} />
@@ -1067,30 +1081,39 @@ function GroupActiveCallWindow({isVideo,isConnected,remoteName,seconds,fmt,isMut
           )}
           <span style={{position:"absolute", bottom:6, left:6, background:"rgba(0,0,0,0.7)", color:"#fff", fontSize:11, fontWeight:600, padding:"3px 8px", borderRadius:8}}>{me?.username||"You"} {isMuted?"🔇":""}</span>
         </div>
-        {/* Remote tiles */}
-        {streams.map(([pid, stream]:any)=>{
-          const isAudioOnly = stream.getVideoTracks().length===0 || !isVideo;
+        {/* Remote tiles – authoritative: one tile per active participant (stream or placeholder) */}
+        {effectiveRemoteIds.map((pid:string)=>{
+          const stream = streamMap.get(String(pid)) || null;
+          const hasStream = !!stream;
+          const isAudioOnly = !hasStream ? false : (stream!.getVideoTracks().length===0 || !isVideo);
           const name = getName(pid);
           const avatar = getAvatar(pid);
+          const isConnecting = !hasStream;
           return (
-            <div key={pid} style={{position:"relative", background:"#0a0a0a", borderRadius:12, overflow:"hidden", border:"2px solid rgba(255,255,255,0.12)"}}>
-              {isAudioOnly ? (
+            <div key={String(pid)} style={{position:"relative", background:"#0a0a0a", borderRadius:12, overflow:"hidden", border:"2px solid rgba(255,255,255,0.12)", minHeight:120}}>
+              {isConnecting ? (
+                <div style={{width:"100%", height:"100%", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:"linear-gradient(135deg,#1c1511,#0f1d1a)", gap:8, minHeight:120}}>
+                  {avatar ? <img src={avatar} className="w-14 h-14 rounded-full object-cover border border-white/20 animate-pulse" alt={name} /> : <div style={{width:56, height:56, borderRadius:"50%", background:"rgba(99,102,241,0.3)", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontWeight:600}}>{name.slice(0,2).toUpperCase()}</div>}
+                  <span style={{color:"#fff", fontSize:12, fontWeight:600}}>{name}</span>
+                  <span style={{color:"rgba(255,255,255,0.6)", fontSize:10, display:"flex", alignItems:"center", gap:4}}><span style={{width:6,height:6,borderRadius:"50%", background:"#f59e0b", display:"inline-block"}} className="cw-pulse"/> Connecting…</span>
+                </div>
+              ) : isAudioOnly ? (
                 <div style={{width:"100%", height:"100%", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:"linear-gradient(135deg,#1e1a2e,#0f1d1a)", gap:8}}>
                   {avatar ? <img src={avatar} className="w-14 h-14 rounded-full object-cover border border-white/20" alt={name} /> : <div style={{width:56, height:56, borderRadius:"50%", background:"rgba(99,102,241,0.3)", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontWeight:600}}>{name.slice(0,2).toUpperCase()}</div>}
                   <span style={{color:"#fff", fontSize:12, fontWeight:600}}>{name}</span>
                   <span style={{color:"#4ade80", fontSize:10, display:"flex", alignItems:"center", gap:4}}><span style={{width:6,height:6,borderRadius:"50%", background:"#22c55e", display:"inline-block"}}/> connected</span>
-                  <audio autoPlay playsInline ref={(el:any)=>{ if(el && el.srcObject!==stream){ el.srcObject=stream; el.play().catch(()=>{}); }}} style={{display:"none"}} />
+                  <audio autoPlay playsInline ref={(el:any)=>{ if(el && stream && el.srcObject!==stream){ el.srcObject=stream; el.play().catch(()=>{}); }}} style={{display:"none"}} />
                 </div>
               ) : (
-                <video ref={(el:any)=>{ if(el){ tileRefs.current.set(pid, el); if(el.srcObject!==stream){ el.srcObject=stream; el.play().catch(()=>{}); }}}} autoPlay playsInline style={{width:"100%", height:"100%", objectFit:"contain", background:"#000"}} />
+                <video ref={(el:any)=>{ if(el){ tileRefs.current.set(String(pid), el); if(el.srcObject!==stream){ el.srcObject=stream as MediaStream; el.play().catch(()=>{}); }}}} autoPlay playsInline style={{width:"100%", height:"100%", objectFit:"contain", background:"#000"}} />
               )}
-              {isAudioOnly ? null : <audio autoPlay playsInline ref={(el:any)=>{ if(el && stream.getAudioTracks().length>0 && el.srcObject!==stream){ el.srcObject=stream; el.play().catch(()=>{}); }}} style={{position:"absolute", opacity:0, pointerEvents:"none", width:0, height:0}} />}
-              <span style={{position:"absolute", bottom:6, left:6, background:"rgba(0,0,0,0.7)", color:"#fff", fontSize:11, fontWeight:600, padding:"3px 8px", borderRadius:8, maxWidth:"80%", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{name}</span>
+              {isConnecting || isAudioOnly ? null : <audio autoPlay playsInline ref={(el:any)=>{ if(el && stream && stream.getAudioTracks().length>0 && el.srcObject!==stream){ el.srcObject=stream; el.play().catch(()=>{}); }}} style={{position:"absolute", opacity:0, pointerEvents:"none", width:0, height:0}} />}
+              <span style={{position:"absolute", bottom:6, left:6, background:"rgba(0,0,0,0.7)", color:"#fff", fontSize:11, fontWeight:600, padding:"3px 8px", borderRadius:8, maxWidth:"80%", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{name} {isConnecting ? "" : ""}</span>
             </div>
           );
         })}
-        {streams.length===0 && (
-          <div style={{display:"flex", alignItems:"center", justifyContent:"center", color:"rgba(255,255,255,0.5)", fontSize:12}}>Waiting for others to join…</div>
+        {effectiveRemoteIds.length===0 && (
+          <div style={{display:"flex", alignItems:"center", justifyContent:"center", color:"rgba(255,255,255,0.5)", fontSize:12, minHeight:120}}>Waiting for others to join…</div>
         )}
       </div>
       <ControlBar isVideo={isVideo} isMuted={isMuted} isSpeakerMuted={isSpeakerMuted} onMute={onMute} onSpeaker={onSpeaker} onEnd={onEnd} onFlip={onFlip} />
