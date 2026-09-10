@@ -188,7 +188,33 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
   };
 
   const processGroupOffer = async ({ groupId, offer, from, type }: any)=>{
-    if(groupPeersRef.current.has(from)) return;
+    const myId = getMyId();
+    let peer = groupPeersRef.current.get(from);
+    // glare handling: if we already have a peer in have-local-offer, decide polite
+    if(peer){
+      if(peer.signalingState === "have-local-offer"){
+        const isPolite = myId > from; // polite if larger ID
+        if(!isPolite){
+          console.log("glare: impolite, ignore offer from", from);
+          return;
+        }
+        // polite: rollback and answer
+        try{
+          await peer.setRemoteDescription(new RTCSessionDescription(offer));
+          const q = groupIceQueuesRef.current.get(from) || [];
+          for(const c of q){ try{ await peer.addIceCandidate(new RTCIceCandidate(c)); }catch{} }
+          groupIceQueuesRef.current.delete(from);
+          const answer = await peer.createAnswer();
+          await peer.setLocalDescription(answer);
+          socket.emit("group-call-answer", { groupId, answer: peer.localDescription, to: from });
+          forceGroupUpdate();
+          return;
+        }catch(e){ console.error("glare polite handling failed", e); return; }
+      } else {
+        // already have peer but not in have-local-offer, ignore duplicate
+        return;
+      }
+    }
     try{
       let stream = localStreamRef.current;
       if(!stream){
@@ -201,7 +227,7 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
           return;
         }
       }
-      const peer = createPeer(from, true, groupId);
+      peer = createPeer(from, true, groupId);
       groupPeersRef.current.set(from, peer);
       for(const track of stream.getTracks()) peer.addTrack(track, stream);
       await peer.setRemoteDescription(new RTCSessionDescription(offer));
