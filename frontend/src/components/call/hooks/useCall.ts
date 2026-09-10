@@ -210,7 +210,7 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
       groupIceQueuesRef.current.delete(from);
       const answer = await peer.createAnswer();
       await peer.setLocalDescription(answer);
-      await waitForIceGathering(peer);
+      // trickle ICE: emit answer immediately, candidates will trickle
       socket.emit("group-call-answer", { groupId, answer: peer.localDescription, to: from });
       forceGroupUpdate();
     }catch(e){ console.error("group offer handling failed", e); }
@@ -282,7 +282,6 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
         for(const track of stream.getTracks()) peer.addTrack(track, stream);
         const offer = await peer.createOffer();
         await peer.setLocalDescription(offer);
-        await waitForIceGathering(peer);
         socket.emit("group-call-offer", { groupId, to: userId, offer: peer.localDescription, type: callSocket.callType || "audio" });
         forceGroupUpdate();
       }catch(e){ console.error("participant joined offer failed", e); }
@@ -391,7 +390,7 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
       // important: set calling BEFORE emitting so participant-joined handler will run
       callSocket.setCallStatus("calling");
       setActiveCallUserId(groupId);
-      // Create peer per other member and send offer
+      // Create peer per other member and send offer (trickle ICE for instant pickup)
       for(const m of otherMembers){
         const mid = typeof m === 'string' ? m : m._id?.toString() || m.toString();
         const peer = createPeer(mid, true, groupId);
@@ -399,7 +398,6 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
         for(const track of stream.getTracks()) peer.addTrack(track, stream);
         const offer = await peer.createOffer();
         await peer.setLocalDescription(offer);
-        await waitForIceGathering(peer);
         socket.emit("group-call-offer", { groupId, to: mid, offer: peer.localDescription, type });
       }
       socket.emit("group-call-start", { groupId, type });
