@@ -143,20 +143,60 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
         groupStreamsRef.current.set(remoteId, new MediaStream());
       }
       const gStream = groupStreamsRef.current.get(remoteId)!;
+      // Robust ontrack: handle both event.streams[0] and event.track
       peer.ontrack = (event) => {
-        console.log(`[GROUP-CALL] Remote track received from ${remoteId} kind=${event.track.kind} callId=${groupCallIdRef.current}`);
-        // addTrack may fire per track; ensure not duplicating same track id
+        const track = event.track;
+        const streamFromEvent = event.streams && event.streams[0] ? event.streams[0] : null;
+        console.log(`[GROUP-CALL] ontrack from ${remoteId} kind=${track.kind} readyState=${track.readyState} enabled=${track.enabled} muted=${track.muted} streamId=${streamFromEvent?.id||'none'} tracks=${streamFromEvent ? streamFromEvent.getTracks().map(t=>t.kind).join(',') : 'no-stream'}`);
+        // Prefer adding the track itself to our per-peer MediaStream
         const existingIds = new Set(gStream.getTracks().map(t=> t.id));
-        if(!existingIds.has(event.track.id)){
-          gStream.addTrack(event.track);
+        if(!existingIds.has(track.id)){
+          try {
+            gStream.addTrack(track);
+            console.log(`[GROUP-CALL] Added ${track.kind} track to ${remoteId} -> now ${gStream.getTracks().length} tracks (${gStream.getVideoTracks().length} video, ${gStream.getAudioTracks().length} audio)`);
+            // Log detailed track info
+            track.onended = () => console.log(`[GROUP-CALL] track ended ${remoteId} ${track.kind}`);
+            track.onmute = () => console.log(`[GROUP-CALL] track muted ${remoteId} ${track.kind}`);
+            track.onunmute = () => console.log(`[GROUP-CALL] track unmuted ${remoteId} ${track.kind} - should now render`);
+          } catch(e){ console.error(`[GROUP-CALL] addTrack failed for ${remoteId}`, e); }
+        } else {
+          console.log(`[GROUP-CALL] duplicate track ignored for ${remoteId} ${track.kind}`);
         }
+        // If event provided a stream with multiple tracks, merge all (fallback)
+        if(streamFromEvent && streamFromEvent.getTracks().length > 1){
+          for(const t of streamFromEvent.getTracks()){
+            if(!existingIds.has(t.id) && t.id !== track.id){
+              try{ gStream.addTrack(t); console.log(`[GROUP-CALL] merged extra ${t.kind} from stream for ${remoteId}`);}catch{}
+            }
+          }
+        }
+        // Force React update
         forceGroupUpdate();
-        // also keep legacy remote for audio fallback
+        // Ensure any video element for this participant re-attaches and plays
+        // We do not rely solely on global remote ref; per-peer stream will be bound in UI
+        // Also keep legacy remote for audio fallback (single audio element)
         if(!remoteStreamRef.current) remoteStreamRef.current = new MediaStream();
-        try{ if(!Array.from(remoteStreamRef.current.getTracks()).find(t=> t.id===event.track.id)) remoteStreamRef.current.addTrack(event.track); }catch{}
-        if(event.track.kind==="audio" && remoteAudioRef.current){
+        try{ 
+          const has = Array.from(remoteStreamRef.current.getTracks()).find(t=> t.id===track.id);
+          if(!has) remoteStreamRef.current.addTrack(track); 
+        }catch{}
+        if(track.kind==="audio" && remoteAudioRef.current){
           attachWithRetry(remoteAudioRef, gStream, false);
         }
+        // Detailed sender/receiver audit
+        setTimeout(()=>{
+          try{
+            const senders = peer.getSenders();
+            const receivers = peer.getReceivers();
+            console.log(`[GROUP-CALL] Peer ${remoteId} senders: ${senders.map(s=> s.track ? s.track.kind+`(${s.track.enabled?'enabled':'disabled'},${s.track.readyState})` : 'no-track').join(', ')}`);
+            console.log(`[GROUP-CALL] Peer ${remoteId} receivers: ${receivers.map(r=> r.track ? r.track.kind+`(${r.track.readyState},${(r.track as any).muted?'muted':'unmuted'})` : 'no-track').join(', ')}`);
+            console.log(`[GROUP-CALL] gStream ${remoteId} videoTracks=${gStream.getVideoTracks().length} audioTracks=${gStream.getAudioTracks().length} id=${gStream.id}`);
+            if(gStream.getVideoTracks().length>0){
+              const vt = gStream.getVideoTracks()[0];
+              console.log(`[GROUP-CALL] Video track for ${remoteId}: readyState=${vt.readyState} enabled=${vt.enabled} muted=${vt.muted} id=${vt.id}`);
+            }
+          }catch{}
+        }, 300);
       };
       peer.onconnectionstatechange = () => {
         console.log(`[GROUP-CALL] connection ${myId} -> ${remoteId} state=${peer.connectionState} ice=${peer.iceConnectionState} sig=${peer.signalingState}`);
@@ -261,15 +301,32 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
             stream = await navigator.mediaDevices.getUserMedia({ audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}, video: type==="video"});
             localStreamRef.current = stream;
             if(localVideoRef.current && stream) { localVideoRef.current.srcObject = stream; localVideoRef.current.muted=true; localVideoRef.current.playsInline=true; localVideoRef.current.play().catch(()=>{}); (callSocket as any).attachStreams?.(); }
+            console.log(`[GROUP-CALL] Acquired local stream for answer to ${from}: ${stream.getTracks().map(t=> t.kind).join(',')} video=${stream.getVideoTracks().length}`);
           }catch(e){
             console.error("[GROUP-CALL] getUserMedia failed for group offer", e);
             return;
           }
+        } else {
+          console.log(`[GROUP-CALL] Using local stream for answer to ${from}: videoTracks=${stream.getVideoTracks().length} tracks=${stream.getTracks().map(t=>t.kind).join(',')}`);
+        }
+        if((type==="video" || callSocket.callType==="video") && stream.getVideoTracks().length===0){
+          console.warn(`[GROUP-CALL] no video track for answer to ${from}, trying to acquire`);
+          try{
+            const vs = await navigator.mediaDevices.getUserMedia({ video:true });
+            const vt = vs.getVideoTracks()[0];
+            if(vt){ stream.addTrack(vt); console.log(`[GROUP-CALL] added missing video track for ${from}`); }
+          }catch{}
         }
         peer = createPeer(from, true, groupId);
         groupPeersRef.current.set(from, peer);
         if(!groupStreamsRef.current.has(from)) groupStreamsRef.current.set(from, new MediaStream());
-        for(const track of stream.getTracks()) peer.addTrack(track, stream);
+        for(const track of stream.getTracks()){
+          try{
+            peer.addTrack(track, stream);
+            console.log(`[GROUP-CALL] addTrack ${track.kind} to answer peer ${from}`);
+          }catch(e){ console.error(`addTrack failed for ${from}`, e); }
+        }
+        // Log SDP check after answer will be done below
       }catch(e){ console.error("setup peer for offer failed", e); return; }
     }
     try{
@@ -280,8 +337,11 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
       for(const c of q){ try{ await peer!.addIceCandidate(new RTCIceCandidate(c)); }catch(e){ console.warn("queued ICE add failed", e); } }
       groupIceQueuesRef.current.delete(from);
       const answer = await peer!.createAnswer();
+      const answerHasVideo = (answer.sdp||'').includes('m=video');
+      console.log(`[GROUP-CALL] Answer SDP has video: ${answerHasVideo} for ${from} (type ${type})`);
+      if(!answerHasVideo && (type==="video" || callSocket.callType==="video")) console.warn(`[GROUP-CALL] ANSWER MISSING VIDEO for ${from}`);
       await peer!.setLocalDescription(answer);
-      console.log(`[GROUP-CALL] Sending answer to ${from}`);
+      console.log(`[GROUP-CALL] Sending answer to ${from} with ${peer!.getSenders().map(s=> s.track ? s.track.kind : 'null').join(',')}`);
       socket.emit("group-call-answer", { groupId, answer: peer!.localDescription, to: from, callId: groupCallIdRef.current || (callSocket as any).currentCallId });
       forceGroupUpdate();
       setTimeout(()=> forceGroupUpdate(), 100);
@@ -402,16 +462,42 @@ export function useCall(remoteVideoRef: any, localVideoRef: any, remoteAudioRef:
           stream = await navigator.mediaDevices.getUserMedia({ audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}, video: type==="video"});
           localStreamRef.current = stream;
           if(localVideoRef.current){ localVideoRef.current.srcObject = stream; localVideoRef.current.muted=true; localVideoRef.current.playsInline=true; localVideoRef.current.play().catch(()=>{}); (callSocket as any).attachStreams?.(); }
+          console.log(`[GROUP-CALL] Acquired local stream for offer to ${userId}: ${stream.getTracks().map(t=> t.kind+`(${t.enabled?'on':'off'},${t.readyState})`).join(', ')}`);
+        } else {
+          console.log(`[GROUP-CALL] Using existing local stream for ${userId}: ${stream.getTracks().map(t=> t.kind+`(${t.readyState})`).join(', ')} videoTracks=${stream.getVideoTracks().length}`);
+        }
+        // CRITICAL: ensure video track exists for video calls
+        if((callSocket.callType||"audio")==="video" && stream.getVideoTracks().length===0){
+          console.warn(`[GROUP-CALL] WARNING: no video track in local stream for ${userId} – requesting video again`);
+          try{
+            const vStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            const vTrack = vStream.getVideoTracks()[0];
+            if(vTrack){ stream.addTrack(vTrack); console.log(`[GROUP-CALL] Added missing video track for ${userId}`); }
+          }catch(e){ console.error("failed to get video track", e); }
         }
         const peer = createPeer(userId, true, groupId);
         groupPeersRef.current.set(userId, peer);
         if(!groupStreamsRef.current.has(userId)) groupStreamsRef.current.set(userId, new MediaStream());
-        for(const track of stream.getTracks()) peer.addTrack(track, stream);
+        // Add every local track to this peer – MUST include video for video calls
+        for(const track of stream.getTracks()){
+          try{
+            peer.addTrack(track, stream);
+            console.log(`[GROUP-CALL] addTrack ${track.kind} (${track.id}) to peer ${userId} enabled=${track.enabled} readyState=${track.readyState}`);
+          }catch(e){ console.error(`addTrack failed for ${userId}`, e); }
+        }
+        // Audit senders
+        setTimeout(()=> {
+          try{ console.log(`[GROUP-CALL] senders for ${userId}: ${peer.getSenders().map(s=> s.track ? s.track.kind : 'null').join(',')}`);}catch{}
+        }, 100);
         groupMakingOfferRef.current.set(userId, true);
         const offer = await peer.createOffer();
+        // Log SDP contains video
+        const sdpHasVideo = (offer.sdp||'').includes('m=video');
+        console.log(`[GROUP-CALL] Offer SDP has video: ${sdpHasVideo} for ${userId}`);
+        if(!sdpHasVideo && (callSocket.callType==="video")) console.error(`[GROUP-CALL] OFFER MISSING VIDEO m-line for ${userId}!`);
         await peer.setLocalDescription(offer);
         groupMakingOfferRef.current.set(userId, false);
-        console.log(`[GROUP-CALL] Creating peer ${myId} -> ${userId} offer`);
+        console.log(`[GROUP-CALL] Creating peer ${myId} -> ${userId} offer type=${callSocket.callType}`);
         socket.emit("group-call-offer", { groupId, to: userId, offer: peer.localDescription, type: callSocket.callType || "audio", callId: groupCallIdRef.current || (callSocket as any).currentCallId });
         forceGroupUpdate();
       }catch(e){ console.error("participant joined offer failed", e); groupMakingOfferRef.current.set(userId,false); }

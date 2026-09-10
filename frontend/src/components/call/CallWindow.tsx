@@ -1047,17 +1047,57 @@ function GroupActiveCallWindow({isVideo,isConnected,remoteName,seconds,fmt,isMut
     return null;
   };
   const tileRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
+  // Helper to attach stream robustly with autoplay handling (mobile)
+  const attachStreamToVideo = (video: HTMLVideoElement, stream: MediaStream) => {
+    if(!video || !stream) return;
+    const isSame = video.srcObject === stream;
+    if(!isSame) video.srcObject = stream;
+    video.muted = false;
+    (video as any).playsInline = true;
+    video.autoplay = true;
+    // Always attempt play – needed when track was added after srcObject was set (same object)
+    const playPromise = video.play();
+    if(playPromise && playPromise.catch){
+      playPromise.catch((err:any)=>{
+        console.warn(`[GROUP-CALL] video play failed for ${stream.id}`, err?.name||err);
+        // Fallback: try muted play (autoplay policy) then unmute on next user interaction
+        video.muted = true;
+        video.play().then(()=>{
+          // Try to unmute after short delay if still blocked, will be unmuted on next interaction
+          setTimeout(()=> { try{ video.muted = false; }catch{} }, 1500);
+        }).catch(()=>{});
+      });
+    }
+    // Debug: log track states
+    const vt = stream.getVideoTracks()[0];
+    if(vt) console.log(`[GROUP-CALL] attach ${stream.id} video track readyState=${vt.readyState} enabled=${vt.enabled} muted=${vt.muted}`);
+  };
   useEffect(()=>{
     for(const pid of effectiveRemoteIds){
       const stream = streamMap.get(String(pid));
       if(!stream) continue;
       const el = tileRefs.current.get(String(pid));
-      if(el && el.srcObject !== stream){
-        el.srcObject = stream;
-        el.play().catch(()=>{});
-      }
+      if(!el) continue;
+      // Attach even if same object – handles case where video track was added after initial attach
+      attachStreamToVideo(el, stream);
     }
   },[effectiveRemoteIds.join(","), groupTick, streams.map(s=>s[0]).join(",")]);
+  // Also re-attach when stream's video tracks change (e.g., added after)
+  useEffect(()=>{
+    const iv = setInterval(()=>{
+      for(const pid of effectiveRemoteIds){
+        const stream = streamMap.get(String(pid));
+        const el = tileRefs.current.get(String(pid));
+        if(el && stream && el.srcObject !== stream){
+          attachStreamToVideo(el, stream);
+        } else if(el && stream && stream.getVideoTracks().length>0 && el.paused){
+          // If video is paused but should be playing (track added), retry
+          attachStreamToVideo(el, stream);
+        }
+      }
+    }, 1000);
+    return ()=> clearInterval(iv);
+  },[effectiveRemoteIds.join(","), groupTick]);
   return (
     <div className={`cw-window cw-anim-scale-in${isVideo ? " is-video" : ""}`} style={{ position:"fixed", display:"flex", flexDirection:"column" }}>
       <TitleBar remoteName={remoteName} isConnected={isConnected} isVideo={isVideo} />
@@ -1105,9 +1145,9 @@ function GroupActiveCallWindow({isVideo,isConnected,remoteName,seconds,fmt,isMut
                   <audio autoPlay playsInline ref={(el:any)=>{ if(el && stream && el.srcObject!==stream){ el.srcObject=stream; el.play().catch(()=>{}); }}} style={{display:"none"}} />
                 </div>
               ) : (
-                <video ref={(el:any)=>{ if(el){ tileRefs.current.set(String(pid), el); if(el.srcObject!==stream){ el.srcObject=stream as MediaStream; el.play().catch(()=>{}); }}}} autoPlay playsInline style={{width:"100%", height:"100%", objectFit:"contain", background:"#000"}} />
+                <video ref={(el:any)=>{ if(el){ tileRefs.current.set(String(pid), el); attachStreamToVideo(el, stream as MediaStream); } }} autoPlay playsInline muted={false} style={{width:"100%", height:"100%", objectFit:"contain", background:"#000"}} />
               )}
-              {isConnecting || isAudioOnly ? null : <audio autoPlay playsInline ref={(el:any)=>{ if(el && stream && stream.getAudioTracks().length>0 && el.srcObject!==stream){ el.srcObject=stream; el.play().catch(()=>{}); }}} style={{position:"absolute", opacity:0, pointerEvents:"none", width:0, height:0}} />}
+              {isConnecting || isAudioOnly ? null : <audio autoPlay playsInline ref={(el:any)=>{ if(el && stream && stream.getAudioTracks().length>0){ attachStreamToVideo(el, stream as MediaStream); } }} style={{position:"absolute", opacity:0, pointerEvents:"none", width:0, height:0}} />}
               <span style={{position:"absolute", bottom:6, left:6, background:"rgba(0,0,0,0.7)", color:"#fff", fontSize:11, fontWeight:600, padding:"3px 8px", borderRadius:8, maxWidth:"80%", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{name} {isConnecting ? "" : ""}</span>
             </div>
           );
